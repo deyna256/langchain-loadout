@@ -9,6 +9,10 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Changed
+
+- Refreshed the README with a visual overview, a compact quick start and links to detailed documentation.
+
 ## [0.1.0] - 2026-09-20
 
 The first release.

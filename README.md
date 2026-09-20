@@ -1,50 +1,71 @@
-# langchain-loadout
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/banner.svg" alt="Loadout — selects the skills each turn needs from a larger catalog" width="100%">
 
 <p><strong>Per-turn skill selection for LangChain and deepagents agents: the model sees the few skills
 it needs, not a catalog of hundreds.</strong></p>
 
 [![CI](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/deyna256/langchain-loadout)](https://github.com/deyna256/langchain-loadout/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
 [![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fdeyna256%2Flangchain-loadout%2Fmain%2Fpyproject.toml)](pyproject.toml)
 [![License: MIT](https://img.shields.io/github/license/deyna256/langchain-loadout)](LICENSE)
 
-[Install](#install) · [Quick start](#quick-start) · [What it gives](#what-it-gives) ·
-[Limits](#limits) · [How it works](docs/design.md) · [Contributing](CONTRIBUTING.md)
+[Quick start](#quick-start) · [Results](#results) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
+
+</div>
 
 ---
 
-> [!NOTE]
-> `0.1.0` is the first release. While the version is `0.x` the public API may change in a minor
-> release.
+## Why Loadout
 
-An agent with hundreds of skills carries every name and description in its system prompt, on every
-model call. Loadout decides each turn which skills matter and shows the model only those.
+Large skill catalogs take up context on every model call. Loadout ranks and verifies skills for each
+user turn, then loads the relevant instructions or suggests candidates. The agent can also search the
+catalog with `find_skill`.
 
-- **Each turn stands alone.** "Is a skill needed at all" is asked alongside the ranking, so a request
-  that needs no skill costs one cheap answer and nothing is loaded. No state, no checkpointer, nothing
-  to carry between turns.
-- **The logic is Loadout's, the judge is yours.** The questions are simple — "pick one", "yes or no" —
-  and go through a single port. A ready adapter ships for
-  [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev).
-- **Confidence decides what the agent sees.** High: the skill's instructions go straight into the
-  request. Medium: two or three candidates. Low: nothing, and the model can still call `find_skill`.
-  Every threshold is a setting.
-- **A failure does not break the agent.** Loadout wraps the ordinary skills middleware. If it times out
-  or errors, the agent gets the full list, exactly as it would without Loadout.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-## Install
+**Focused context**<br>
+Confidence determines what gets loaded or suggested. Every threshold is configurable.
 
-```sh
-uv add "langchain-loadout[jev]"      # or: pip install "langchain-loadout[jev]"
-```
+</td>
+<td width="50%" valign="top">
 
-The `jev` extra brings the ready adapter and its SDK; leave it out to plug in a judge of your own.
-Python 3.11 or newer.
+**Independent turns**<br>
+No skill state to carry between turns. No checkpointer or additional storage required.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**Your choice of judge**<br>
+Use the included [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) adapter
+or implement the small `Judge` interface.
+
+</td>
+<td valign="top">
+
+**Graceful fallback**<br>
+Decision timeouts and transient judge failures restore the full catalog.
+Configuration errors surface explicitly.
+
+</td>
+</tr>
+</table>
 
 ## Quick start
 
-Loadout replaces the deepagents skills middleware and takes its place in the agent:
+**1. Install.** Requires Python 3.11+. The `jev` extra includes the judge adapter and its SDK.
+
+```sh
+pip install "langchain-loadout[jev]"
+```
+
+**2. Connect your skills.** Place them in `./skills/<name>/SKILL.md` with `name` and `description`
+in YAML front matter. Set `TYPESAFE_API_KEY` and your model provider's credentials
+(`ANTHROPIC_API_KEY` for this example).
 
 ```python
 from deepagents import create_deep_agent
@@ -53,7 +74,7 @@ from deepagents.backends import FilesystemBackend
 from langchain_loadout.langchain import LoadoutSkillsMiddleware
 from langchain_loadout.providers.jev import JevJudge
 
-backend = FilesystemBackend(root_dir=".")
+backend = FilesystemBackend(root_dir=".", virtual_mode=True)
 loadout = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=JevJudge())
 
 agent = create_deep_agent(
@@ -65,51 +86,35 @@ agent = create_deep_agent(
 await agent.ainvoke({"messages": [{"role": "user", "content": "I need a statement for the embassy"}]})
 ```
 
-The skills stay where they were; nothing else about the agent changes. `JevJudge` reads
-`TYPESAFE_API_KEY`, and the decision runs on `ainvoke` and `astream` — a synchronous run takes the
-ordinary path. Every threshold and every question the judge is asked is a field of `Settings`.
+Run the example in an async context. Selection runs on `ainvoke` and `astream`; synchronous calls use
+the ordinary skills middleware. Tune thresholds and questions through `Settings`.
 
-## What it gives
+The public API is evolving: minor releases may introduce breaking changes while the version is `0.x`.
 
-Measured on a testbed — a bank-statement assistant with a catalog of 236 skills, an agent on
-deepagents, 50 conversations of 5 turns each:
+## Results
 
-| | with Loadout | full catalog in the prompt |
+Measured on a bank-statement assistant using deepagents: **236 skills, 250 turns**.
+
+| Metric | With Loadout | Full catalog |
 |---|---|---|
-| correct answer to the user | 86% | 86% |
-| the right skill was taken | **86%** | 57% |
-| skills section of the prompt | **5,648 characters** | 89,150 characters |
-| input tokens per turn | **34,131** | 111,864 |
+| Correct skill selected | **86%** | 57% |
+| Skills section | **5,648 characters** | 89,150 characters |
+| Input tokens per turn | **34,131** | 111,864 |
+| Answer accuracy | 86% | 86% |
 
-When the agent has tools and can work the answer out for itself, the skill barely affects whether the
-answer is right. What Loadout delivers consistently is context and a predictable skill choice. The
-reasoning behind the design is in [docs/design.md](docs/design.md).
+These results use generated data, one judge and one agent model. Selection added roughly 3 seconds
+on this catalog; total cost per turn was slightly higher because changing prompts reduced cache reuse.
+Fit thresholds to your own data. [Measurement context and limits →](docs/design.md#known-limits)
 
-## Limits
+## Documentation
 
-- **It is not an accuracy feature.** Where a skill only restates what the model could work out, the
-  answer is the same either way.
-- **A decision costs about 3 s on a catalog of 236 skills.** Two seconds is reachable on a catalog of
-  about a hundred, or on a turn that continues a topic.
-- **A turn costs slightly more, not less.** The full catalog is identical every message and caches
-  well; the Loadout prompt changes every turn and does not.
-- **Thresholds have to be fitted on your own data**, and the library has no procedure for that yet.
-- **Everything above was measured on generated data**, with one judge and one agent model.
-
-The reasoning behind each of these is in [docs/design.md](docs/design.md#known-limits).
-
-## Development
-
-```sh
-uv sync
-just test     # the test suite; no network needed
-just lint     # formatting, style and import order
-just type     # types
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for issues, branches, commits and reviews, and
-[docs/development.md](docs/development.md) for the coding rules.
+| Read | Covers |
+|---|---|
+| [How it works](docs/design.md) | Selection flow, judge interface, settings and trade-offs |
+| [Development guide](docs/development.md) | Architecture, Python conventions and testing |
+| [Contributing](CONTRIBUTING.md) | Local setup, checks, issues and pull requests |
+| [Changelog](CHANGELOG.md) | Release history |
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © 2026 Ivan Deyna
