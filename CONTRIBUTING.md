@@ -112,10 +112,6 @@ byte what the release holds — and uploads them to PyPI through trusted publish
 anywhere: GitHub's own identity for that run is exchanged for a short-lived credential, which is why
 the job names the `pypi` environment that the publisher configuration on PyPI expects.
 
-Before a release that changes packaging, run the **Publish to TestPyPI** workflow. It builds and
-uploads under a development version of its own, so the dry run can be repeated and the real version
-number stays free.
-
 ## Pull requests
 
 Use the [pull request template](.github/pull_request_template.md) with these sections:
