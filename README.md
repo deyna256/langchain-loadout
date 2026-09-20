@@ -4,17 +4,19 @@
 it needs, not a catalog of hundreds.</strong></p>
 
 [![CI](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/deyna256/langchain-loadout)](https://github.com/deyna256/langchain-loadout/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
 [![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fdeyna256%2Flangchain-loadout%2Fmain%2Fpyproject.toml)](pyproject.toml)
 [![License: MIT](https://img.shields.io/github/license/deyna256/langchain-loadout)](LICENSE)
 
-[What it gives](#what-it-gives) · [Limits](#limits) · [How it works](docs/design.md) ·
-[Contributing](CONTRIBUTING.md)
+[Install](#install) · [Quick start](#quick-start) · [What it gives](#what-it-gives) ·
+[Limits](#limits) · [How it works](docs/design.md) · [Contributing](CONTRIBUTING.md)
 
 ---
 
 > [!NOTE]
-> Not released yet. The library works and is measured, but the public API is still moving and there is
-> no package on PyPI.
+> `0.1.0` is the first release. It is on GitHub, not yet on PyPI, and while the version is `0.x` the
+> public API may change in a minor release.
 
 An agent with hundreds of skills carries every name and description in its system prompt, on every
 model call. Loadout decides each turn which skills matter and shows the model only those.
@@ -30,6 +32,42 @@ model call. Loadout decides each turn which skills matter and shows the model on
   Every threshold is a setting.
 - **A failure does not break the agent.** Loadout wraps the ordinary skills middleware. If it times out
   or errors, the agent gets the full list, exactly as it would without Loadout.
+
+## Install
+
+```sh
+uv add "langchain-loadout[jev] @ git+https://github.com/deyna256/langchain-loadout@v0.1.0"
+```
+
+The `jev` extra brings the ready adapter and its SDK; leave it out to plug in a judge of your own.
+Python 3.11 or newer.
+
+## Quick start
+
+Loadout replaces the deepagents skills middleware and takes its place in the agent:
+
+```python
+from deepagents import create_deep_agent
+from deepagents.backends import FilesystemBackend
+
+from langchain_loadout.langchain import LoadoutSkillsMiddleware
+from langchain_loadout.providers.jev import JevJudge
+
+backend = FilesystemBackend(root_dir=".")
+loadout = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=JevJudge())
+
+agent = create_deep_agent(
+    model="anthropic:claude-sonnet-4-5",
+    backend=backend,
+    skills=["/skills/"],
+    middleware=[loadout],
+)
+await agent.ainvoke({"messages": [{"role": "user", "content": "I need a statement for the embassy"}]})
+```
+
+The skills stay where they were; nothing else about the agent changes. `JevJudge` reads
+`TYPESAFE_API_KEY`, and the decision runs on `ainvoke` and `astream` — a synchronous run takes the
+ordinary path. Every threshold and every question the judge is asked is a field of `Settings`.
 
 ## What it gives
 
