@@ -9,6 +9,8 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-21
+
 ### Fixed
 
 - Instruction read errors now fall back to the ordinary full skills catalog for that model call,
@@ -41,5 +43,6 @@ The first release.
 - A public API: everything listed in `langchain_loadout.__all__`, importable from the package root and
   pulling in neither a framework nor a provider SDK.
 
-[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/deyna256/langchain-loadout/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/deyna256/langchain-loadout/releases/tag/v0.1.0
