@@ -4,25 +4,13 @@ name: Publish
 # release holds. Authentication is PyPI trusted publishing: no token is stored anywhere, GitHub's OIDC
 # identity is exchanged for a short-lived credential.
 #
-# Three ways in, because the release event alone is not enough:
-#   release        — a release published by hand in the web interface;
-#   workflow_call  — the release workflow, which creates releases with GITHUB_TOKEN. GitHub does not
-#                    start a workflow from an event raised by that token, so the release trigger never
-#                    fires for those and the release workflow has to call this one directly;
-#   workflow_dispatch — republishing a tag whose release was already created, v0.1.0 among them.
+# Run this workflow directly so the attestation identity matches the publish.yml Trusted Publisher.
+# Select the tag of an existing GitHub release when starting it.
 on:
-  release:
-    types: [published]
-  workflow_call:
-    inputs:
-      tag:
-        description: The release tag to publish
-        required: true
-        type: string
   workflow_dispatch:
     inputs:
       tag:
-        description: The release tag to publish, for example v0.1.0
+        description: The release tag to publish, for example v0.1.1
         required: true
         type: string
 
@@ -40,8 +28,7 @@ jobs:
       id-token: write        # exchange for a PyPI credential
     env:
       GH_TOKEN: ${{ github.token }}
-      # `inputs` is set for a call and a dispatch, and empty for a release event.
-      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      TAG: ${{ inputs.tag }}
     steps:
       - name: Take the distributions from the release
         # Only the distributions: anything else attached to a release is not publishable, and the

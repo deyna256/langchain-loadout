@@ -9,6 +9,11 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Changed
+
+- PyPI publication is now started manually through Publish with an existing release tag. Release only
+  creates the GitHub release, keeping publication attestations tied to the configured Trusted Publisher.
+
 ## [0.1.1] - 2026-09-21
 
 ### Fixed

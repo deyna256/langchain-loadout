@@ -1,9 +1,8 @@
 name: Release
 
 # Cut a release by hand: the "Run workflow" button on the Actions tab. The version comes from
-# pyproject.toml, and publishing to PyPI is a separate workflow this one calls once the release exists.
-# Calling it is deliberate: the release below is created with GITHUB_TOKEN, and GitHub does not start a
-# workflow from an event raised by that token, so a `release: published` trigger would never fire.
+# pyproject.toml. This workflow creates the GitHub release only; run Publish separately to send its
+# distributions to PyPI.
 on: workflow_dispatch
 
 jobs:
@@ -96,13 +95,3 @@ jobs:
 
       - name: Publish the release
         run: gh release create "v${{ needs.checks.outputs.version }}" dist/*.whl dist/*.tar.gz --generate-notes
-
-  pypi:
-    name: Send the release to PyPI
-    needs: [checks, release]
-    uses: ./.github/workflows/publish.yml
-    permissions:
-      contents: read
-      id-token: write
-    with:
-      tag: v${{ needs.checks.outputs.version }}
