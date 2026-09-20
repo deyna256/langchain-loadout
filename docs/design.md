@@ -33,14 +33,14 @@ is uneven.
 
 ## Decisions
 
-1. **Loadout collects nothing itself.** The catalog and the turn's context come from the product or its
-   framework. It scans nothing and remembers nothing: the set of loaded skills is held by the agent.
+1. **Loadout collects nothing and remembers nothing.** The catalog and the turn's context come from the
+   product or its framework, and each turn is decided on its own. Nothing is carried over from the turn
+   before it, so the library needs no checkpointer and no store of its own.
 2. **The judge is a fast classifier that returns probabilities** (Jev today). The logic — which
    questions to ask and how to read the answers — stays in Loadout; a provider is plugged in through
    the `Judge` port, which speaks in "pick one" and "yes or no".
 3. **A decision is a loadout for the turn:** load (the instruction text goes straight into the
-   request), suggest (two or three candidates the model chooses from), drop (loaded skills that are no
-   longer needed).
+   request) and suggest (two or three candidates the model chooses from).
 4. **Every threshold is a product setting** (`Settings`), fitted on the product's own data.
 5. **A Loadout failure does not break the conversation:** the worst outcome is that the agent gets its
    skills the ordinary way.
@@ -50,11 +50,10 @@ is uneven.
 ```
 user message
   │
-  ├─ 1. A cheap call with no catalog (~400 tokens, ~0.35 s):
-  │     is a skill needed at all · is anything needed beyond what is loaded · is each loaded skill still needed
-  │     └─ no new skill needed → the decision is ready
+  ├─ 1. "Is a skill needed at all" (~400 tokens), asked alongside the ranking rather than before it
+  │     └─ answered low → the decision is ready, and nothing is loaded
   │
-  ├─ 2. Ranking over the catalog: pick by name and description → the best `shortlist` with probabilities
+  ├─ 2. Ranking over the catalog: pick by name and description → the best candidates with probabilities
   │     (over the provider's limit → parts in parallel, then a merge)
   │     └─ `skip_verify_at` is set and the first candidate is above it → load without verifying
   │
@@ -69,12 +68,9 @@ user message
 - A candidate's text goes in its own question rather than in the shared state, because otherwise its
   score depends on its neighbours in the same call — a shift of up to 0.46, against no more than 0.05
   this way — and the size of a call stops growing with the number of candidates.
-- The cheap questions come first, so small talk and continuations of a topic never pay for a pass over
-  the catalog. At a threshold of 0.05, "is a skill needed" errs towards "not needed" in 0–0.7% of
-  requests.
-- Each loaded skill gets its own question instead of one blanket "is anything else needed": that
-  distinguishes "now export it to Excel", where the old skill still applies, from "and I also need a
-  visa certificate", where it does not.
+- "Is a skill needed at all" travels with the ranking instead of preceding it. Asked first it ends
+  about one turn in fifty on its own and costs every other turn a round trip; asked alongside, it costs
+  neither. At a threshold of 0.05 it errs towards "not needed" in 0-0.7% of requests.
 
 ## The interface
 
@@ -87,20 +83,20 @@ from langchain_loadout.langchain import LoadoutSkillsMiddleware  # pulls in lang
 from langchain_loadout.providers.jev import JevJudge  # pulls in typesafe-sdk
 
 router = SkillRouter(catalog, judge, settings)
-decision = await router.decide(Turn(request, context, loaded))  # load / suggest / keep / drop + trace
+decision = await router.decide(Turn(request, context))  # load / suggest + trace
 found = await router.search(query)  # for the find_skill tool
 ```
 
 `Settings` carries three kinds of knob. **How much:** `max_candidates`, `max_load`, `head_chars`,
-`request_chars`, `context_chars`, `budget_share`, `timeout`. **Thresholds:** `need_at`, `beyond_at`,
-`keep_at`, `load_at`, `suggest_at` and `skip_verify_at`, which is off by default. **Every question the
-judge is asked:** `need_question`, `rank_question`, `fits_question`, `still_question` and
-`beyond_question` — the defaults are written for a general assistant, and wording that names the
-product's own domain separates better. `Trace` carries the ranking probabilities, the answer to every
-question, where the decision ended, how long it took and what failed.
+`request_chars`, `context_chars`, `budget_share`, `timeout`. **Thresholds:** `need_at`, `load_at`,
+`suggest_at` and `skip_verify_at`, which is off by default. **Both questions the judge is asked:**
+`need_question`, `rank_question` and `fits_question` — the defaults are written for a general
+assistant, and wording that names the product's own domain separates better. `Trace` carries the
+ranking probabilities, the answer to every question, where the decision ended, how long it took and
+what failed.
 
 Each threshold is compared against the trace field of the same name: `need_at` against `trace.need`,
-`keep_at` against `trace.still_needed`, `load_at` and `suggest_at` against `trace.fits`.
+`load_at` and `suggest_at` against `trace.fits`.
 
 ## Plugging in a different judge
 
@@ -159,12 +155,17 @@ is not in the list. The optimisation applies when the agent is run asynchronousl
 - **Thresholds have to be fitted per product**, and there is no procedure in the library for it yet.
   `apply_policy` is kept separate from the calls so traces can be refitted without paying the provider
   again, but the workflow around that is missing.
-- **Cross-turn memory needs a carrier the library does not have.** Keeping and dropping skills is what
-  makes a continuation cheap — 1.6 s against 3.1 s — but it has to know which skills are loaded. Graph
-  state does not survive an invocation without a checkpointer, a private field cannot even be passed
-  back in, and the message history is unreliable because middleware clips and offloads tool results.
-  The errors are asymmetric: believing a skill is loaded when it is not makes the agent answer without
-  the procedure, silently, while not knowing about a loaded skill only costs a pass over the catalog.
+- **Every turn pays for a full pass.** Loadout deliberately carries nothing between turns, so a
+  continuation of a topic costs the same as a new one: 3.1 s against the 1.6 s it cost while the
+  library kept track of what was loaded. Removing that also cost about three points of skill-choice
+  accuracy on continuations, measured by replaying the recorded answers.
+
+  It was removed because it could not be made reliable. Graph state does not survive an invocation
+  without a checkpointer, a private field cannot even be passed back in, and the message history is no
+  better because middleware clips and offloads tool results. The errors are asymmetric: believing a
+  skill is loaded when it is not makes the agent answer without the procedure, silently, while not
+  knowing about a loaded skill only costs a pass over the catalog. Bringing it back needs a carrier the
+  library is willing to ask an application for.
 
 Open work is tracked in issues.
 

@@ -38,6 +38,8 @@ LOADED = "**Loaded skill instructions — follow them:**\n\n{texts}\n\n"
 
 class LoadoutState(SkillsState):
     loadout_turn: NotRequired[Annotated[str, PrivateStateAttr]]  # id of the user message this decision was made for
+    # These three carry the decision from `abefore_model` to `awrap_model_call` within one invocation of
+    # the graph. Nothing is read back from a previous turn, so no checkpointer is required.
     loadout_failed: NotRequired[Annotated[bool, PrivateStateAttr]]  # a failure means the ordinary full list
     loadout_loaded: NotRequired[Annotated[list[str], PrivateStateAttr]]  # the text of these skills goes into the request
     loadout_suggest: NotRequired[Annotated[list[str], PrivateStateAttr]]  # these are listed only
@@ -89,8 +91,7 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         if ours.get("loadout_turn") == turn_id:
             return None  # this turn already has a decision
         router = self._router_from(ours.get("skills_metadata", []))
-        loaded = tuple(ours.get("loadout_loaded", []))
-        turn = Turn(request=str(messages[last].content), context=self.context(messages[:last]), loaded=loaded)
+        turn = Turn(request=str(messages[last].content), context=self.context(messages[:last]))
         decision = await router.decide(turn)
         if self.on_decision:
             self.on_decision(decision)
@@ -99,7 +100,7 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         return {
             "loadout_turn": turn_id,
             "loadout_failed": False,
-            "loadout_loaded": [*decision.keep, *decision.load],
+            "loadout_loaded": list(decision.load),
             "loadout_suggest": list(decision.suggest),
         }
 

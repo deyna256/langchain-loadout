@@ -55,6 +55,7 @@ async def test_questions_are_translated_and_answers_come_back_in_our_shape():
         {"skill": Pick("Which one?", {"a": "first", "b": "second"}), "need": YesNo("Is a skill needed?")},
     )
     _, asked = client.asked
+
     assert isinstance(asked["skill"], Choice) and asked["skill"].criteria == {"a": "first", "b": "second"}
     assert isinstance(asked["need"], Noul)
     assert answers["skill"].probabilities == {"a": 0.5, "b": 0.5}
@@ -63,7 +64,9 @@ async def test_questions_are_translated_and_answers_come_back_in_our_shape():
 
 async def test_token_usage_is_reported_for_every_call():
     spent: list[int] = []
+
     await JevJudge(Client(), on_usage=spent.append).ask({}, {"need": YesNo("Is a skill needed?")})
+
     assert spent == [42]
 
 

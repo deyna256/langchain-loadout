@@ -19,8 +19,9 @@ it needs, not a catalog of hundreds.</strong></p>
 An agent with hundreds of skills carries every name and description in its system prompt, on every
 model call. Loadout decides each turn which skills matter and shows the model only those.
 
-- **Cheap questions first.** Is a skill needed at all, and is what is already loaded enough — asked
-  without the catalog, in about 0.35 s. Ranking and verification run only when a new skill is needed.
+- **Each turn stands alone.** "Is a skill needed at all" is asked alongside the ranking, so a request
+  that needs no skill costs one cheap answer and nothing is loaded. No state, no checkpointer, nothing
+  to carry between turns.
 - **The logic is Loadout's, the judge is yours.** The questions are simple — "pick one", "yes or no" —
   and go through a single port. A ready adapter ships for
   [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev).

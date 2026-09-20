@@ -2,15 +2,16 @@
 
 A turn goes through:
 
-0. A cheap call with no catalog: is a skill needed at all, is anything needed beyond what is loaded,
-   and is each loaded skill still needed. If no new skill is needed, one cheap call ends the decision.
-1. Ranking: pick from the catalog by name and description, keeping the best `max_candidates`. If the
-   catalog does not fit the provider's limits (`judge.limits`), it is split into parts that do, keeping
-   groups together; the parts are asked in parallel and their winners merged by a further pick,
-   repeating until everything fits one call.
+1. Ranking, with "is a skill needed at all" asked alongside it: pick from the catalog by name and
+   description, keeping the best `max_candidates`. If the catalog does not fit the provider's limits
+   (`judge.limits`), it is split into parts that do, keeping groups together; the parts are asked in
+   parallel and their winners merged by a further pick, repeating until everything fits one call.
+   A low "need" ends the decision here, with nothing loaded.
 2. Verification: does each candidate fit, judged from the head of its text. With `skip_verify_at` set
    and ranking confident in its first candidate, this step is skipped.
 3. Thresholds from `Settings`, applied by `decide_from_trace`.
+
+A turn is decided on its own. Nothing is carried over from the turn before it; why not is on `Turn`.
 
 The questions are written in English, which is what the judges measured so far answer best in; the
 user's own request is passed through unchanged, in whatever language it arrives. A product can replace
@@ -32,28 +33,23 @@ from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Tr
 # state, no more than 0.05 this way), and a call costs the state plus one longest question rather than
 # every candidate at once.
 FALLBACK_SUGGEST = 3  # how many ranked candidates to suggest when verification fails
-SPARE_CHARS = 1200  # room for question texts and loaded-skill descriptions when checking settings
+SPARE_CHARS = 1200  # room for the question texts themselves when checking whether settings fit
 
 Ranking = list[tuple[str, float]]
 
 
-def decide_from_trace(s: Settings, loaded: tuple[str, ...], trace: Trace) -> Decision:
+def decide_from_trace(s: Settings, trace: Trace) -> Decision:
     """Thresholds to a decision. Kept apart from the calls, so thresholds can be refitted on recorded
     traces without asking the provider again."""
     if trace.need is None or trace.need < s.need_at:
-        return Decision(keep=loaded, trace=trace)
-    still, fits = trace.still_needed, trace.fits
-    keep = tuple(n for n in loaded if still.get(n, 0.0) >= s.keep_at)
-    drop = tuple(n for n in loaded if still.get(n, 0.0) < s.keep_at)
-    if loaded and trace.beyond is not None and trace.beyond < s.beyond_at:
-        return Decision(keep=keep, drop=drop, trace=trace)  # what is loaded is enough
-    top = next(((n, p) for n, p in trace.candidates if n not in loaded), None)
+        return Decision(trace=trace)
+    top = next(iter(trace.candidates), None)
     if s.skip_verify_at is not None and top and top[1] >= s.skip_verify_at:
-        return Decision(load=(top[0],), keep=keep, drop=drop, trace=trace)  # ranking is sure; skip verification
-    by_fit = sorted(fits, key=fits.__getitem__, reverse=True)
-    load = tuple([n for n in by_fit if fits[n] >= s.load_at][: s.max_load])
-    suggest = tuple(n for n in by_fit if n not in load and fits[n] >= s.suggest_at)
-    return Decision(load=load, suggest=suggest, keep=keep, drop=drop, trace=trace)
+        return Decision(load=(top[0],), trace=trace)  # ranking is sure; skip verification
+    by_fit = sorted(trace.fits, key=trace.fits.__getitem__, reverse=True)
+    load = tuple([n for n in by_fit if trace.fits[n] >= s.load_at][: s.max_load])
+    suggest = tuple(n for n in by_fit if n not in load and trace.fits[n] >= s.suggest_at)
+    return Decision(load=load, suggest=suggest, trace=trace)
 
 
 def call_size(state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> int:
@@ -105,43 +101,39 @@ class SkillRouter:
         except Exception as err:
             failure = "timeout" if isinstance(err, TimeoutError) else f"{type(err).__name__}: {err}"
             trace = Trace(failure=failure, seconds=time.monotonic() - started)
-            return Decision(suggest=tuple(ranked_so_far[:FALLBACK_SUGGEST]), keep=turn.loaded, trace=trace)
+            return Decision(suggest=tuple(ranked_so_far[:FALLBACK_SUGGEST]), trace=trace)
 
     async def _decide(self, turn: Turn, started: float, ranked_so_far: list[str]) -> Decision:
         s = self.settings
-        base = {"request": turn.request[: s.request_chars], "context": turn.context[-s.context_chars :], "loaded": list(turn.loaded)}
-        loaded_info = {n: self.skills[n].description for n in turn.loaded if n in self.skills}
+        base = {"request": turn.request[: s.request_chars], "context": turn.context[-s.context_chars :]}
 
         def elapsed() -> float:
             return time.monotonic() - started
 
-        # 1. A cheap call with no catalog: the questions that can end the decision on their own.
-        gate_questions: dict[str, Pick | YesNo] = {"need": YesNo(s.need_question)}
-        if turn.loaded:
-            gate_questions["beyond"] = YesNo(s.beyond_question)
-            gate_questions |= {f"still:{n}": YesNo(s.still_question.format(name=n)) for n in turn.loaded}
-        gate = await self.judge.ask(base | {"loaded_skills": loaded_info}, gate_questions)
-        need = gate["need"].yes
-        beyond = gate["beyond"].yes if turn.loaded else None
-        still = {n: gate[f"still:{n}"].yes for n in turn.loaded}
-        trace = Trace(need=need, beyond=beyond, still_needed=still, stage="gate")
-        if need < s.need_at or (beyond is not None and beyond < s.beyond_at):
-            return decide_from_trace(s, turn.loaded, replace(trace, seconds=elapsed()))
+        # "Is a skill needed at all" goes out alongside the ranking rather than before it. Asked first it
+        # would end about one turn in fifty on its own and cost every other turn a round trip; asked in
+        # parallel it costs neither.
+        gate, ranked = await asyncio.gather(
+            self.judge.ask(base, {"need": YesNo(s.need_question)}),
+            self._rank(base, list(self.skills), s.max_candidates),
+        )
+        ranking, parts = ranked
+        trace = Trace(need=gate["need"].yes, parts=parts, stage="gate")
+        if trace.need is not None and trace.need < s.need_at:
+            return decide_from_trace(s, replace(trace, seconds=elapsed()))
 
-        # 2. Rank the catalog, but only when a new skill is actually needed.
-        ranking, parts = await self._rank(base, list(self.skills), s.max_candidates + len(turn.loaded))
-        candidates = [(n, p) for n, p in ranking if n not in turn.loaded][: s.max_candidates]
+        candidates = ranking[: s.max_candidates]
         ranked_so_far += [n for n, _ in candidates]
-        trace = replace(trace, candidates=tuple(candidates), parts=parts)
+        trace = replace(trace, candidates=tuple(candidates))
 
-        # 3. Verify candidates against their texts, unless the product allows skipping a confident ranking.
+        # Verify candidates against their texts, unless the product allows skipping a confident ranking.
         if s.skip_verify_at is not None and candidates and candidates[0][1] >= s.skip_verify_at:
-            return decide_from_trace(s, turn.loaded, replace(trace, stage="skip", seconds=elapsed()))
+            return decide_from_trace(s, replace(trace, stage="skip", seconds=elapsed()))
         heads = await self._read_heads(ranked_so_far)
         questions = {f"fits:{n}": YesNo(s.fits_question.format(name=n, text=head)) for n, head in heads.items()}
-        answers = await self.judge.ask(base | {"loaded_skills": loaded_info}, questions) if questions else {}
+        answers = await self.judge.ask(base, questions) if questions else {}
         fits = {n: answers[f"fits:{n}"].yes for n in heads}
-        return decide_from_trace(s, turn.loaded, replace(trace, fits=fits, stage="verify", seconds=elapsed()))
+        return decide_from_trace(s, replace(trace, fits=fits, stage="verify", seconds=elapsed()))
 
     async def search(self, query: str, limit: int = 5) -> list[Skill]:
         """Back the `find_skill` tool: the best skills for the model's own query, or nothing on failure."""

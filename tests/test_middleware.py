@@ -78,15 +78,19 @@ def system_text(messages: list[Any]) -> str:
 
 
 async def test_confident_choice_shows_only_that_skill_and_its_text(backend):
+
     model = await run(backend, judge_choosing("visa-statement"), [AIMessage("done")])
     prompt = system_text(model.seen[0])
+
     assert "Instruction text for visa-statement" in prompt
     assert "card-limits" not in prompt and "spending-by-category" not in prompt
 
 
 async def test_failure_falls_back_to_the_usual_full_list(backend):
+
     model = await run(backend, judge_choosing(None), [AIMessage("done")])
     prompt = system_text(model.seen[0])
+
     assert all(name in prompt for name in SKILLS)
     assert "Instruction text for" not in prompt
 
@@ -94,7 +98,9 @@ async def test_failure_falls_back_to_the_usual_full_list(backend):
 async def test_decision_is_made_once_per_turn(backend):
     judge = judge_choosing("visa-statement")
     ls = AIMessage("", tool_calls=[{"name": "ls", "args": {"path": "/"}, "id": "call-1"}])
+
     model = await run(backend, judge, [ls, AIMessage("done")])
+
     assert len(model.seen) == 2  # the model was called twice in the turn
     assert len(judge.calls) == 3  # the judge once per turn: cheap call, ranking, verification
     assert "Instruction text for visa-statement" in system_text(model.seen[1])
@@ -107,5 +113,7 @@ async def test_every_decision_is_reported_for_observability(backend):
         backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"), on_decision=seen.append
     )
     agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+
     await agent.ainvoke({"messages": [HumanMessage("I need a statement for the embassy")]})
+
     assert [d.load for d in seen] == [("visa-statement",)]

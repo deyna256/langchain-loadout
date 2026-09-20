@@ -13,9 +13,10 @@ The first release is still being put together, so everything here is new.
 
 ### Added
 
-- `SkillRouter`, which decides on each turn which skills an agent should see: a cheap call that can end
-  the decision on its own, ranking over the catalog, and verification of the candidates against their
-  own text. Every threshold and every question is a `Settings` field.
+- `SkillRouter`, which decides on each turn which skills an agent should see: ranking over the catalog
+  with "is a skill needed at all" asked alongside it, then verification of the candidates against their
+  own text. Every threshold and every question is a `Settings` field. A turn is decided on its own, so
+  the library needs no checkpointer and keeps nothing between turns.
 - `LoadoutSkillsMiddleware` for deepagents agents, which takes the place of `SkillsMiddleware` and
   falls back to it whenever a decision fails.
 - The `Judge` port, with `JevJudge` behind the optional `jev` extra, so the library depends on no
