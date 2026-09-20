@@ -60,7 +60,10 @@ jobs:
       - name: Attest what was built
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: dist/*
+          # `uv build` also drops a .gitignore into dist/, which is neither built nor publishable.
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
 
       - name: Publish the release
-        run: gh release create "v$version" dist/* --generate-notes
+        run: gh release create "v$version" dist/*.whl dist/*.tar.gz --generate-notes
