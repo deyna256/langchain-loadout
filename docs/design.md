@@ -91,10 +91,16 @@ decision = await router.decide(Turn(request, context, loaded))  # load / suggest
 found = await router.search(query)  # for the find_skill tool
 ```
 
-`Settings` carries `shortlist`, `max_load`, `load_at`, `suggest_at`, `keep_at`, `need_at`, `beyond_at`,
-`skip_verify_at` (off by default), `need_question`, `head_chars`, `request_chars`, `context_chars`,
-`budget_share` and `timeout`. `Trace` carries the ranking probabilities, the answers to every question,
-where the decision ended, how long it took and what failed.
+`Settings` carries three kinds of knob. **How much:** `max_candidates`, `max_load`, `head_chars`,
+`request_chars`, `context_chars`, `budget_share`, `timeout`. **Thresholds:** `need_at`, `beyond_at`,
+`keep_at`, `load_at`, `suggest_at` and `skip_verify_at`, which is off by default. **Every question the
+judge is asked:** `need_question`, `rank_question`, `fits_question`, `still_question` and
+`beyond_question` — the defaults are written for a general assistant, and wording that names the
+product's own domain separates better. `Trace` carries the ranking probabilities, the answer to every
+question, where the decision ended, how long it took and what failed.
+
+Each threshold is compared against the trace field of the same name: `need_at` against `trace.need`,
+`keep_at` against `trace.still_needed`, `load_at` and `suggest_at` against `trace.fits`.
 
 ## Plugging in a different judge
 
