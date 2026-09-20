@@ -15,8 +15,8 @@ it needs, not a catalog of hundreds.</strong></p>
 ---
 
 > [!NOTE]
-> `0.1.0` is the first release. It is on GitHub, not yet on PyPI, and while the version is `0.x` the
-> public API may change in a minor release.
+> `0.1.0` is the first release. While the version is `0.x` the public API may change in a minor
+> release.
 
 An agent with hundreds of skills carries every name and description in its system prompt, on every
 model call. Loadout decides each turn which skills matter and shows the model only those.
@@ -36,7 +36,7 @@ model call. Loadout decides each turn which skills matter and shows the model on
 ## Install
 
 ```sh
-uv add "langchain-loadout[jev] @ git+https://github.com/deyna256/langchain-loadout@v0.1.0"
+uv add "langchain-loadout[jev]"      # or: pip install "langchain-loadout[jev]"
 ```
 
 The `jev` extra brings the ready adapter and its SDK; leave it out to plug in a judge of your own.
