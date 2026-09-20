@@ -5,6 +5,9 @@ user message Loadout decides which of them are needed, and the model sees only t
 loaded ones goes straight into the system message. On any failure the request passes to the ordinary
 middleware untouched, so the model sees the full list exactly as it would without Loadout.
 
+Selection, instruction reads and `find_skill` use the current execution's catalog. No catalog or router
+is cached on the middleware instance, which may be shared by concurrent executions.
+
 Wiring: `create_deep_agent(..., skills=[...], middleware=[LoadoutSkillsMiddleware(...)])`. The wrapper
 carries the built-in middleware's name and takes its place. The optimisation applies when the agent is
 run asynchronously (`ainvoke`, `astream`); a synchronous run takes the ordinary path.
@@ -17,6 +20,7 @@ from deepagents.backends.protocol import BackendProtocol
 from deepagents.middleware._utils import append_to_system_message
 from deepagents.middleware.skills import SkillMetadata, SkillsMiddleware, SkillsState
 from langchain.agents.middleware.types import ModelRequest, ModelResponse, PrivateStateAttr
+from langchain.tools import ToolRuntime
 from langchain_core.messages import AnyMessage, HumanMessage
 from langchain_core.tools import BaseTool, StructuredTool
 
@@ -68,9 +72,6 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         super().__init__(backend=backend, sources=sources)
         self.judge, self.settings, self.context = judge, settings, context
         self.on_decision = on_decision  # every decision's trace, for logs, metrics and measurement
-        self._router: SkillRouter | None = None
-        self._router_for: tuple[str, ...] = ()
-        self._paths: dict[str, str] = {}
         self.tools: list[BaseTool] = [self._find_skill_tool(catalog_hint)]
 
     @property
@@ -115,7 +116,8 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         loaded = state.get("loadout_loaded", [])
         picked = set(loaded) | set(state.get("loadout_suggest", []))
         listed: list[SkillMetadata] = [m for m in state.get("skills_metadata", []) if m["name"] in picked]
-        texts = [await self._text(name) for name in loaded if name in self._paths]
+        paths = {m["name"]: m["path"] for m in listed}
+        texts = [await self._text(paths[name]) for name in loaded if name in paths]
         section = PROMPT.format(
             skills_list=self._format_skills_list(listed) if listed else "(nothing picked for this request)",
             loaded=LOADED.format(texts="\n\n---\n\n".join(texts)) if texts else "",
@@ -125,37 +127,35 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
     # --- catalog and search -------------------------------------------------------------------------
 
     def _router_from(self, metadata: list[SkillMetadata]) -> SkillRouter:
-        names = tuple(m["name"] for m in metadata)
-        if self._router is None or names != self._router_for:
-            self._paths = {m["name"]: m["path"] for m in metadata}
-            catalog = [Skill(m["name"], m["description"], self._reader(m["name"])) for m in metadata]
-            self._router, self._router_for = SkillRouter(catalog, self.judge, self.settings), names
-        return self._router
+        catalog = [Skill(m["name"], m["description"], self._reader(m["path"])) for m in metadata]
+        return SkillRouter(catalog, self.judge, self.settings)
 
-    def _reader(self, name: str) -> Callable[[], Awaitable[str]]:
+    def _reader(self, path: str) -> Callable[[], Awaitable[str]]:
         async def read() -> str:
-            return await self._text(name)
+            return await self._text(path)
 
         return read
 
-    async def _text(self, name: str) -> str:
+    async def _text(self, path: str) -> str:
         """Read a skill's instructions from the backend. Deliberately not cached: an agent that runs for
         days would otherwise keep serving the text a SKILL.md had when it first read it."""
-        [response] = await self._backend.adownload_files([self._paths[name]])
+        [response] = await self._backend.adownload_files([path])
         if response.error or response.content is None:
-            raise OSError(f"could not read {self._paths[name]}: {response.error}")
+            raise OSError(f"could not read {path}: {response.error}")
         return response.content.decode()
 
     def _find_skill_tool(self, catalog_hint: str) -> BaseTool:
-        async def find_skill(query: str) -> str:
-            if self._router is None:
+        async def find_skill(query: str, runtime: ToolRuntime) -> str:
+            metadata = runtime.state.get("skills_metadata")
+            if metadata is None:
                 return "Skill catalog is not loaded yet."
-            found = await self._router.search(query)
+            if not metadata:
+                return "No matching skill found."
+            found = await self._router_from(metadata).search(query)
             if not found:
                 return "No matching skill found."
-            return "\n".join(
-                f"- **{s.name}**: {s.description}\n  -> Read `{self._paths[s.name]}` for full instructions" for s in found
-            )
+            paths = {m["name"]: m["path"] for m in metadata}
+            return "\n".join(f"- **{s.name}**: {s.description}\n  -> Read `{paths[s.name]}` for full instructions" for s in found)
 
         description = (f"{catalog_hint} " if catalog_hint else "") + (
             "Find skills (step-by-step instructions) for a task that the skills listed in the system prompt don't cover. "

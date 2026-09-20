@@ -9,6 +9,11 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Fixed
+
+- Skill selection, instruction loading and `find_skill` now use the current execution's catalog,
+  including updated descriptions and paths, without sharing a cached router between concurrent runs.
+
 ### Changed
 
 - Refreshed the README with a visual overview, a compact quick start and links to detailed documentation.

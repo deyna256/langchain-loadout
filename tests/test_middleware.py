@@ -1,5 +1,6 @@
 """The Loadout wrapper around the deepagents skills middleware: what the model sees, and what it sees on failure."""
 
+import asyncio
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -7,10 +8,11 @@ from typing import Any
 import pytest
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
+from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from langchain_loadout import Answer, Pick, YesNo
+from langchain_loadout import Answer, Limits, Pick, YesNo
 from langchain_loadout.langchain import LoadoutSkillsMiddleware
 from langchain_loadout.testing import ScriptedJudge, yes
 
@@ -117,3 +119,84 @@ async def test_every_decision_is_reported_for_observability(backend):
     await agent.ainvoke({"messages": [HumanMessage("I need a statement for the embassy")]})
 
     assert [d.load for d in seen] == [("visa-statement",)]
+
+
+class CatalogMiddleware(AgentMiddleware):
+    """Supply the invocation's catalog after ordinary discovery."""
+
+    def __init__(self, metadata):
+        self.metadata = metadata
+
+    async def abefore_agent(self, state, runtime):
+        return {"skills_metadata": self.metadata}
+
+
+def catalog_agent(backend, middleware, tmp_path, label, name):
+    path = f"/{label}/SKILL.md"
+    folder = tmp_path / label
+    folder.mkdir()
+    (folder / "SKILL.md").write_text(f"Instructions for {label}")
+    metadata = [{"name": name, "description": f"Description for {label}", "path": path, "allowed_tools": []}]
+    model = RecordingModel(
+        messages=iter(
+            [
+                AIMessage("", tool_calls=[{"name": "find_skill", "args": {"query": label}, "id": f"search-{label}"}]),
+                AIMessage("done"),
+            ]
+        )
+    )
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware, CatalogMiddleware(metadata)])
+    return agent, model
+
+
+async def test_catalog_updates_with_unchanged_skill_names(backend, tmp_path):
+    judge = judge_choosing("statement")
+    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge)
+    for label in ("old", "new"):
+        agent, model = catalog_agent(backend, middleware, tmp_path, label, "statement")
+        result = await agent.ainvoke({"messages": [HumanMessage(label)]})
+        assert f"Instructions for {label}" in system_text(model.seen[0])
+        search = next(m for m in result["messages"] if isinstance(m, ToolMessage))
+        assert f"Description for {label}" in search.content
+        assert f"/{label}/SKILL.md" in search.content
+    ranking_questions = [q for _, questions in judge.calls for q in questions.values() if isinstance(q, Pick)]
+    assert ranking_questions[-1].options == {"statement": "Description for new"}
+
+
+@pytest.mark.parametrize("same_name", [False, True])
+async def test_overlapping_runs_keep_their_own_catalog(backend, tmp_path, same_name):
+    a_started, b_finished = asyncio.Event(), asyncio.Event()
+
+    async def answer(state, questions):
+        if state["request"] == "A" and "need" in questions:
+            a_started.set()
+            await b_finished.wait()
+        return {key: Answer(dict.fromkeys(q.options, 1.0)) if isinstance(q, Pick) else yes(0.95) for key, q in questions.items()}
+
+    class OverlappingJudge:
+        limits = Limits()
+
+        async def ask(self, state, questions):
+            return await answer(state, questions)
+
+    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=OverlappingJudge())
+    agents = {label: catalog_agent(backend, middleware, tmp_path, label, "statement" if same_name else label) for label in ("A", "B")}
+
+    async def invoke(label):
+        if label == "B":
+            await a_started.wait()
+        try:
+            return await agents[label][0].ainvoke({"messages": [HumanMessage(label)]})
+        finally:
+            if label == "B":
+                b_finished.set()
+
+    async with asyncio.timeout(5):
+        results = await asyncio.gather(invoke("A"), invoke("B"))
+    for label, result in zip(("A", "B"), results, strict=True):
+        prompt = system_text(agents[label][1].seen[0])
+        assert f"Instructions for {label}" in prompt
+        assert f"Instructions for {'B' if label == 'A' else 'A'}" not in prompt
+        search = next(m for m in result["messages"] if isinstance(m, ToolMessage))
+        assert f"Description for {label}" in search.content
+        assert f"/{label}/SKILL.md" in search.content
