@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
+from deepagents.backends.protocol import FileDownloadResponse
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -95,6 +96,119 @@ async def test_failure_falls_back_to_the_usual_full_list(backend):
 
     assert all(name in prompt for name in SKILLS)
     assert "Instruction text for" not in prompt
+
+
+@pytest.mark.parametrize("failure", ["missing", "empty_response", "encoding", "io", "timeout"])
+async def test_instruction_read_failure_restores_full_catalog(backend, monkeypatch, caplog, failure):
+    judge = ScriptedJudge(
+        lambda state, questions: {
+            key: Answer(dict.fromkeys(q.options, 1 / len(q.options))) if isinstance(q, Pick) else yes(0.95)
+            for key, q in questions.items()
+        }
+    )
+    original_download = backend.adownload_files
+
+    def fail_after_selection(decision):
+        assert len(decision.load) == 2 and decision.trace.failure is None
+        broken_path = f"/skills/{decision.load[-1]}/SKILL.md"
+
+        async def download(paths):
+            if paths != [broken_path]:
+                return await original_download(paths)
+            if failure == "io":
+                raise OSError("backend unavailable")
+            if failure == "timeout":
+                raise TimeoutError("backend timed out")
+            return [
+                FileDownloadResponse(
+                    path=broken_path,
+                    content=b"\xff" if failure == "encoding" else None,
+                    error="file_not_found" if failure == "missing" else None,
+                )
+            ]
+
+        monkeypatch.setattr(backend, "adownload_files", download)
+
+    model = RecordingModel(
+        messages=iter(
+            [
+                AIMessage("", tool_calls=[{"name": "ls", "args": {"path": "/"}, "id": "call-1"}]),
+                AIMessage("done"),
+            ]
+        )
+    )
+    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge, on_decision=fail_after_selection)
+    agent = create_deep_agent(
+        model=model, backend=backend, skills=["/skills/"], middleware=[middleware], system_prompt="Keep the original instructions."
+    )
+    await agent.ainvoke({"messages": [HumanMessage("I need a statement")]})
+
+    assert len(model.seen) == 2
+    for messages in model.seen:
+        prompt = system_text(messages)
+        assert all(name in prompt for name in SKILLS)
+        assert "Keep the original instructions." in prompt
+        assert "Instruction text for" not in prompt  # discard even the first, successfully read skill
+        assert "Skills picked for the current request" not in prompt
+    assert "using the full catalog" in caplog.text
+
+
+async def test_instruction_read_does_not_hide_backend_bugs(backend, monkeypatch):
+    async def download(paths):
+        raise TypeError("backend bug")
+
+    middleware = LoadoutSkillsMiddleware(
+        backend=backend,
+        sources=["/skills/"],
+        judge=judge_choosing("visa-statement"),
+        on_decision=lambda decision: monkeypatch.setattr(backend, "adownload_files", download),
+    )
+    model = RecordingModel(messages=iter([AIMessage("done")]))
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+    with pytest.raises(TypeError, match="backend bug"):
+        await agent.ainvoke({"messages": [HumanMessage("I need a statement")]})
+    assert not model.seen
+
+
+async def test_cancellation_during_instruction_read_stops_the_agent(backend, monkeypatch):
+    reading = asyncio.Event()
+
+    async def download(paths):
+        reading.set()
+        await asyncio.Future()
+
+    middleware = LoadoutSkillsMiddleware(
+        backend=backend,
+        sources=["/skills/"],
+        judge=judge_choosing("visa-statement"),
+        on_decision=lambda decision: monkeypatch.setattr(backend, "adownload_files", download),
+    )
+    model = RecordingModel(messages=iter([AIMessage("done")]))
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+    task = asyncio.create_task(agent.ainvoke({"messages": [HumanMessage("I need a statement")]}))
+    try:
+        async with asyncio.timeout(5):
+            await reading.wait()
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert not model.seen
+
+
+async def test_model_io_error_is_not_retried_as_a_skill_fallback(backend):
+    class FailingModel(RecordingModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            self.seen.append(messages)
+            raise OSError("model unavailable")
+
+    model = FailingModel(messages=iter([]))
+    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"))
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+    with pytest.raises(OSError, match="model unavailable"):
+        await agent.ainvoke({"messages": [HumanMessage("I need a statement")]})
+    assert len(model.seen) == 1
+    assert "Instruction text for visa-statement" in system_text(model.seen[0])
 
 
 async def test_decision_is_made_once_per_turn(backend):

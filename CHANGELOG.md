@@ -11,6 +11,8 @@ Add the entry for a change in the same commit as the change itself.
 
 ### Fixed
 
+- Instruction read errors now fall back to the ordinary full skills catalog for that model call,
+  without injecting partially loaded instructions or retrying model errors.
 - Skill selection, instruction loading and `find_skill` now use the current execution's catalog,
   including updated descriptions and paths, without sharing a cached router between concurrent runs.
 

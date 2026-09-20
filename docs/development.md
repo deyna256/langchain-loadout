@@ -88,6 +88,12 @@ path that already works.
 Never let a Loadout failure break the agent. The fallback is always the same: the agent gets the full
 catalog, exactly as it would without Loadout.
 
+If selected instructions cannot be read (`OSError`, including timeouts, or `UnicodeError`), the
+middleware warns and uses the ordinary full catalog for that model call. No partially loaded text is
+injected. The next model call may try reading again. This recovery wraps instruction reads only:
+model errors, backend programming errors and cancellation propagate. `on_decision` reports the routing
+decision before instructions are loaded; it does not report this later fallback.
+
 Catch narrowly and say what failed. A bare `except Exception` is acceptable only at the outermost
 boundary of a decision, and it must record what it caught.
 

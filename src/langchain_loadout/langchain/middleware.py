@@ -13,6 +13,7 @@ carries the built-in middleware's name and takes its place. The optimisation app
 run asynchronously (`ainvoke`, `astream`); a synchronous run takes the ordinary path.
 """
 
+import logging
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Annotated, Any, NotRequired, cast
 
@@ -27,6 +28,8 @@ from langchain_core.tools import BaseTool, StructuredTool
 from langchain_loadout.core.judge import Judge
 from langchain_loadout.core.router import SkillRouter
 from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Turn
+
+logger = logging.getLogger(__name__)
 
 PROMPT = """## Skills System
 
@@ -117,7 +120,12 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         picked = set(loaded) | set(state.get("loadout_suggest", []))
         listed: list[SkillMetadata] = [m for m in state.get("skills_metadata", []) if m["name"] in picked]
         paths = {m["name"]: m["path"] for m in listed}
-        texts = [await self._text(paths[name]) for name in loaded if name in paths]
+        try:
+            texts = [await self._text(paths[name]) for name in loaded if name in paths]
+        except (OSError, UnicodeError) as err:
+            # Keep the model call outside this boundary: its errors must not trigger a second call.
+            logger.warning("Skill instructions could not be read; using the full catalog (%s)", type(err).__name__)
+            return await super().awrap_model_call(request, handler)
         section = PROMPT.format(
             skills_list=self._format_skills_list(listed) if listed else "(nothing picked for this request)",
             loaded=LOADED.format(texts="\n\n---\n\n".join(texts)) if texts else "",
