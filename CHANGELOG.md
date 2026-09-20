@@ -9,7 +9,9 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
-The first release is still being put together, so everything here is new.
+## [0.1.0] - 2026-09-20
+
+The first release.
 
 ### Added
 
@@ -27,3 +29,6 @@ The first release is still being put together, so everything here is new.
   instead of hiding a broken setup, and both derive from `LoadoutError`.
 - A public API: everything listed in `langchain_loadout.__all__`, importable from the package root and
   pulling in neither a framework nor a provider SDK.
+
+[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/deyna256/langchain-loadout/releases/tag/v0.1.0
