@@ -1,0 +1,25 @@
+name: Publish
+
+# Runs when a release is published and uploads exactly the files attached to it, so what reaches PyPI
+# is byte for byte what the release holds. Authentication is PyPI trusted publishing: no token is
+# stored anywhere, GitHub's OIDC identity is exchanged for a short-lived credential.
+on:
+  release:
+    types: [published]
+
+jobs:
+  pypi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: pypi        # must match the environment named in the PyPI publisher configuration
+    permissions:
+      contents: read         # download the release assets
+      id-token: write        # exchange for a PyPI credential
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Take the distributions from the release
+        run: gh release download "${{ github.event.release.tag_name }}" --repo "$GITHUB_REPOSITORY" --dir dist
+
+      - name: Upload them to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

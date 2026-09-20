@@ -99,6 +99,19 @@ Tests must not call a provider. The library has no live tests: `langchain_loadou
 scripted judge for that, and the checks that do need a real provider — `check_judge` against an adapter,
 and measurements against real models — belong to the bank testbed, which lives in its own repository.
 
+## Releases
+
+A release is cut by hand, from the Actions tab: run the **Release** workflow on `main`. It refuses to
+run from another branch, and refuses a version that is already released, so the one thing to do first
+is raise `version` in `pyproject.toml` and write the entry in the [changelog](CHANGELOG.md).
+
+The workflow then runs the same checks CI runs, builds the wheel and the source distribution, attests
+what it built, and publishes a GitHub release with those files attached. Publishing the release starts
+the **Publish** workflow, which takes the files off the release — so what reaches the index is byte for
+byte what the release holds — and uploads them to PyPI through trusted publishing. No token is stored
+anywhere: GitHub's own identity for that run is exchanged for a short-lived credential, which is why
+the job names the `pypi` environment that the publisher configuration on PyPI expects.
+
 ## Pull requests
 
 Use the [pull request template](.github/pull_request_template.md) with these sections:

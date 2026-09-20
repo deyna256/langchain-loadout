@@ -1,0 +1,66 @@
+name: Release
+
+# Cut a release by hand: the "Run workflow" button on the Actions tab. The version comes from
+# pyproject.toml, and publishing to PyPI is a separate workflow that reacts to the release.
+on: workflow_dispatch
+
+permissions:
+  contents: write           # create the tag and the release
+  id-token: write           # sign the build provenance
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UV_LOCKED: '1'
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Just
+        uses: extractions/setup-just@v4
+        with:
+          just-version: '1.58.0'
+
+      - name: Decide what is being released
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::a release is cut from main, not from $GITHUB_REF_NAME"
+            exit 1
+          fi
+          version="$(uv version --short)"
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "::error::v$version is already released; raise the version in pyproject.toml first"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_ENV"
+
+      - name: Check formatting and style
+        run: just lint
+
+      - name: Check types
+        run: just type
+
+      - name: Run tests
+        run: just test
+
+      - name: Build the distributions
+        run: just build
+
+      - name: Attest what was built
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Publish the release
+        run: gh release create "v$version" dist/* --generate-notes
