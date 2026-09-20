@@ -11,7 +11,11 @@ jobs:
   pypi:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    environment: pypi        # must match the environment named in the PyPI publisher configuration
+    environment:
+      # The name must match the environment in the PyPI publisher configuration; the url puts a link to
+      # the package on the deployment in GitHub's own interface.
+      name: pypi
+      url: https://pypi.org/p/langchain-loadout
     permissions:
       contents: read         # download the release assets
       id-token: write        # exchange for a PyPI credential
