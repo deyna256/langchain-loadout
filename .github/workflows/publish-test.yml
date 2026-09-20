@@ -1,0 +1,41 @@
+name: Publish to TestPyPI
+
+# A dry run of a release: build the distributions and upload them to TestPyPI, so that packaging,
+# metadata and the rendered README can be checked without spending a version number on the real index.
+# Nothing is tagged and no release is created.
+on: workflow_dispatch
+
+jobs:
+  testpypi:
+    name: Upload a dry run to TestPyPI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/langchain-loadout
+    permissions:
+      id-token: write          # exchange for a TestPyPI credential
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Give this dry run a version of its own
+        # An index refuses a version it already holds, so every dry run gets its own development
+        # version. The number in pyproject.toml is left for the real release.
+        run: uv version --no-sync "$(uv version --short).dev${{ github.run_number }}"
+
+      - name: Build the distributions
+        run: uv build
+
+      - name: Upload them to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
