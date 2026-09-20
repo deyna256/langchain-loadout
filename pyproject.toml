@@ -1,0 +1,40 @@
+[project]
+name = "langchain-loadout"
+version = "0.1.0"
+description = "Per-turn skill selection for LangChain and LangGraph agents: a judge picks the loadout, the catalog stays out of the prompt."
+readme = "README.md"
+authors = [
+    { name = "deyna256", email = "literallybugcreator@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=1.0",
+    "deepagents>=0.7.15",
+]
+
+[project.optional-dependencies]
+jev = ["typesafe-sdk>=0.7.0"]
+
+[build-system]
+requires = ["uv_build>=0.12.16,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.8",
+    "ty>=0.0.82",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 135
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "RUF"]
+ignore = ["E731"]  # short lambdas read better inline
