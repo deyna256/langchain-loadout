@@ -11,6 +11,7 @@ Add the entry for a change in the same commit as the change itself.
 
 ### Changed
 
+- Updated README benchmark results for the PyPI 0.1.0 run, including per-turn costs and sample size.
 - PyPI publication is now started manually through Publish with an existing release tag. Release only
   creates the GitHub release, keeping publication attestations tied to the configured Trusted Publisher.
 

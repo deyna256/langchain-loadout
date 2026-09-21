@@ -11,6 +11,9 @@ user's request rather than on the catalog.
 
 ## What the measurements settled
 
+This section records the earlier measurements that informed the design. The latest benchmark of the
+PyPI 0.1.0 release is reported in the [README](../README.md#results).
+
 Two measurements on a testbed — a Russian bank-statement assistant with a generated catalog and an
 agent built on deepagents — set the terms the rest of this document is written in.
 

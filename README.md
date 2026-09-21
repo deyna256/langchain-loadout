@@ -93,18 +93,23 @@ The public API is evolving: minor releases may introduce breaking changes while 
 
 ## Results
 
-Measured on a bank-statement assistant using deepagents: **236 skills, 250 turns**.
+Latest benchmark on a bank-statement assistant using deepagents and **langchain-loadout 0.1.0 from
+PyPI**: 236 skills, **50 conversations × 5 turns per variant** (250 turns each).
 
 | Metric | With Loadout | Full catalog |
 |---|---|---|
-| Correct skill selected | **86%** | 57% |
-| Skills section | **5,648 characters** | 89,150 characters |
-| Input tokens per turn | **34,131** | 111,864 |
-| Answer accuracy | 86% | 86% |
+| Correct skill selected | **82%** | 61% |
+| Skills section per model call | **5,174 characters** | 89,150 characters |
+| Input tokens per turn | **34,630** | 113,541 |
+| Answer accuracy | 88% | 86% |
+| Cost per turn | $0.0056 | **$0.0039** |
 
-These results use generated data, one judge and one agent model. Selection added roughly 3 seconds
-on this catalog; total cost per turn was slightly higher because changing prompts reduced cache reuse.
-Fit thresholds to your own data. [Measurement context and limits →](docs/design.md#known-limits)
+The skills section was **17.2× smaller**, with **3.3× fewer input tokens**, but cost per turn was
+**44% higher**. Smaller prompts do not necessarily mean lower cost when cache reuse changes.
+
+These results use generated data, one judge and one agent model; the two-point accuracy difference
+alone does not establish an accuracy improvement. Fit thresholds to your own data.
+[Earlier measurements and design trade-offs →](docs/design.md)
 
 ## Documentation
 
