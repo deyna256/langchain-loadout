@@ -2,8 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/banner.svg" alt="Loadout — selects the skills each turn needs from a larger catalog" width="100%">
 
-<p><strong>Per-turn skill selection for LangChain and deepagents agents: the model sees the few skills
-it needs, not a catalog of hundreds.</strong></p>
+<p><strong>Per-turn skill selection for deepagents. Load the instructions each turn needs,
+instead of the full catalog.</strong></p>
 
 [![CI](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
@@ -21,6 +21,9 @@ it needs, not a catalog of hundreds.</strong></p>
 Large skill catalogs take up context on every model call. Loadout ranks and verifies skills for each
 user turn, then loads the relevant instructions or suggests candidates. The agent can also search the
 catalog with `find_skill`.
+
+Loadout extends deepagents through LangChain middleware. Its routing core can also be used
+independently of either framework.
 
 <table>
 <tr>
