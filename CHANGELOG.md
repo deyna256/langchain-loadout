@@ -9,6 +9,8 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-22
+
 ### Added
 
 - `Settings.max_suggest`, 3 by default: at most this many candidates are offered for the model to choose
@@ -90,7 +92,8 @@ The first release.
 - A public API: everything listed in `langchain_loadout.__all__`, importable from the package root and
   pulling in neither a framework nor a provider SDK.
 
-[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/deyna256/langchain-loadout/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/deyna256/langchain-loadout/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/deyna256/langchain-loadout/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/deyna256/langchain-loadout/releases/tag/v0.1.0
