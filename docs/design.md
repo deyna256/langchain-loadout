@@ -16,33 +16,18 @@ This section records the earlier measurements that informed the design. The late
 version and the next steps:
 
 - **Selection is no longer the weak point.** The loaded skill was the right one in 96% of loads, and the
-  right skill reached the model in 86% of turns against 58% with the full list. Perfect selection — always
-  loading the skill the question was written for — still answered 87% against 88% for the full list.
-- **A wrong skill is the costly error.** Turns worked from a wrong skill were answered correctly 40% of the
-  time, against 86% with the right one. A variant that keeps the full list and adds Loadout's pick after the
-  request, the design of TypeSafe's cookbook, lost less on the same mistakes (83%), at 3.2 times the context.
-- **Loading any skill hurt yes/no questions** on the testbed: 64% with Loadout and 79% with perfect
-  selection, against 93% with the full list and 100% with no skills at all (14 turns).
-
-Two measurements on a testbed — a Russian bank-statement assistant with a generated catalog and an
-agent built on deepagents — set the terms the rest of this document is written in.
-
-When the agent has tools and can work the answer out for itself, **the skill is not a precondition for
-a correct answer**: 86% against 86% over 250 conversation turns. So Loadout is not an accuracy feature.
-What it does deliver, consistently, is context and predictability: the skills section of the prompt is
-16 times smaller (5.6k against 89k characters), total input is 3.3 times smaller (34k against 112k
-tokens), and the right skill is taken in 86% of turns against 57%.
-
-Accuracy does improve where a skill carries a domain rule rather than a procedure the model can infer —
-88% against 64% on small-business questions, 71% against 52% on yes/no answers with a supporting
-detail — and it drops where the agent follows an instruction too literally: 57% against 100% on date
-questions, 61% against 89% on report requests.
-
-Three things those numbers do not cover. Everything was measured on generated data: the statements, the
-skills and the questions were written by a model to our rules. One judge and one agent model were used,
-so how Loadout behaves with a different classifier is untested, even though the `Judge` port exists for
-exactly that. And nothing has been measured on a catalog written by people, where description quality
-is uneven.
+  right skill reached the model in 85% of turns against 55% with the full list. Loadout answered 90% of
+  turns correctly against 88% for the full list and 88% for perfect selection — the same answers from a
+  quarter of the context.
+- **Skill quality is the ceiling.** An earlier run put Loadout five points below the full list. Six skills
+  in the testbed described a procedure that contradicted the rule the expected answer was computed from —
+  one told the agent to look for an outgoing payment when the question was whether a counterparty had paid.
+  Every variant that loads skills paid for it, perfect selection included; the full list, which rarely reads
+  a skill, did not. With those six aligned, the gap reversed.
+- **A wrong skill is the costly error.** Turns worked from a wrong skill were answered correctly 72% of the
+  time, against 92% with the right one, which is what the load threshold of 0.9 is there to buy.
+- **A rule inside a skill is what routing is for**: on the 21 turns whose answer depends on one, Loadout
+  scored 76%, the full list 67%, and an agent with no catalog at all 19%.
 
 ## Decisions
 

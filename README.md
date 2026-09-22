@@ -135,21 +135,29 @@ variants. "Perfect selection" always loads the skill the question was written fo
 
 | Metric | Loadout | Full catalog | Perfect selection |
 |---|---|---|---|
-| Input tokens per turn | **29.0k** | 111.1k | 26.1k |
-| Skills in the prompt, characters per call | **5.4k** | 89.2k | 2.7k |
-| Right skill in front of the model | **86%** | 58% | 97% |
-| Loaded skill was the right one | **96%** (227 of 237) | — | 100% |
-| Input from the prompt cache on a new turn | 73% | 94% | — |
-| Correct answers | 83% | **88%** | 87% |
+| Input tokens per turn | **25.8k** | 113.0k | 26.8k |
+| Skills in the prompt, characters per call | **2.6k** | 89.2k | 2.7k |
+| Right skill in front of the model | **85%** | 55% | 97% |
+| Loaded skill was the right one | **96%** (230 of 239) | — | 100% |
+| Input from the prompt cache on a new turn | 77% | 95% | 77% |
+| Correct answers | **90%** | 88% | 88% |
+| Answers that depend on a rule inside a skill (21 turns) | **76%** | 67% | 62% |
 
-- **3.8× less context per turn**, with the right skill in front of the model far more often.
-- **Accuracy is not distinguishable from the full catalog on this sample**: −5.1 points
-  (95% interval −10.5 to 0.0, sign test p = 0.19). Even perfect selection answered 1.8 points below the
-  full list here, so on this catalog the full list is a strong baseline.
-- **A wrong skill costs the most.** In the 15 turns where the model worked from a wrong skill, 40% of
-  answers were correct. Raise `load_at` if your catalog has many near-duplicate skills.
-- **The cache holds across turns.** 73% of a new turn's first call came from the cache, against 41%
-  before 0.2.2.
+- **4.4× less context per turn**, with the right skill in front of the model far more often.
+- **Accuracy holds.** +1.5 points against the full catalog (95% interval −1.5 to +4.7, sign test p = 0.63):
+  the same answers from a fraction of the prompt. Without any skills the agent scored 82%, so the catalog
+  does matter — it just does not have to be in the prompt.
+- **Where a skill carries a rule the model cannot infer, routing wins**: 76% against 67% for the full list.
+- **A wrong skill costs the most.** In the 18 turns where the model worked from a wrong skill, 72% of
+  answers were correct, against 92% with the right one. Raise `load_at` if your catalog has many
+  near-duplicate skills.
+- **The cache holds across turns.** 77% of a new turn's first call came from the cache, against 41% before
+  0.2.2, when the turn's skills were kept out of the conversation.
+
+An earlier run of the same benchmark put Loadout 5 points *below* the full catalog. The difference was six
+skills in the testbed catalog whose instructions contradicted the rule the expected answer was computed
+from; they dragged down every variant that loads skills, including perfect selection. Skill quality is the
+ceiling of any router.
 
 Generated data, one judge and one agent model. Fit the thresholds to your own data.
 [Methodology, earlier measurements and known limits →](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md)
