@@ -30,8 +30,8 @@ Add the entry for a change in the same commit as the change itself.
   skill-suggestion cookbook.
 - `recent_context`, the default context for the judge, now carries what the user asked and the agent
   answered, without tool calls and their results, which pushed the previous request out of the window.
-- Settings that cannot fit verification into one call are rejected at construction with the pick's size
-  counted in: every candidate's text now goes out twice.
+- Settings are checked against the provider's limit with verification's pick counted in: it is now the
+  longest question, carrying every candidate's description and the head of its text.
 
 - Clarified README positioning: a deepagents extension built on LangChain middleware, with an
   independently usable routing core.

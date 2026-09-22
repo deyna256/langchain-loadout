@@ -128,6 +128,22 @@ def test_settings_that_cannot_fit_the_judge_fail_at_once():
         SkillRouter(CATALOG, judge("x", SMALL), Settings(head_chars=5000))
 
 
+def test_too_many_candidates_for_the_pick_fail_at_once():
+    # The pick carries every candidate's description and head in one question: the longest one in the call.
+    with pytest.raises(JudgeMisconfigured, match="max_candidates"):
+        SkillRouter(CATALOG, judge("x", SMALL), Settings(max_candidates=8, head_chars=50, request_chars=200, context_chars=100))
+
+
+async def test_verification_pick_fits_the_limit():
+    fake = judge("tax-3", SMALL)
+
+    await SkillRouter(CATALOG, fake, FIT).decide(Turn("taxes"))
+    state, questions = next((s, qs) for s, qs in fake.calls if "pick" in qs)
+
+    # the limit covers the state plus the longest question, which here is the pick
+    assert estimate(fake, state, {"pick": questions["pick"]}) <= SMALL.max_tokens
+
+
 async def test_search_works_on_a_split_catalog():
     fake = judge("tax-3", SMALL)
 

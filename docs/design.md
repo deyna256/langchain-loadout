@@ -71,9 +71,9 @@ user message
 - Verification asks two different things. Ordered by their independent yes/no answers alone, lookalikes
   tie (0.8 against 0.9, say) and the wrong one often comes first: over 263 conversation turns on the bank
   testbed the right skill was first by `fits` in 67% of turns, against 92% by the ranking over
-  descriptions, and loading the two best side by side dropped the answer from 91% correct to 76%. So a
-  pick over the candidates' texts decides which skill is loaded, one by default, and `fits` only decides
-  whether any is — the split TypeSafe's skill-suggestion cookbook uses as well.
+  descriptions, and loading the right skill together with a neighbour dropped the answer from 91% correct
+  to 76%. So a pick over the candidates' texts decides which skill is loaded, one by default, and `fits`
+  only decides whether any is — the split TypeSafe's skill-suggestion cookbook uses as well.
 - A candidate's text goes in its own question rather than in the shared state, because otherwise its
   score depends on its neighbours in the same call — a shift of up to 0.46, against no more than 0.05
   this way — and the size of a call stops growing with the number of candidates.

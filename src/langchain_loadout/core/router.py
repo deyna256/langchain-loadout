@@ -86,11 +86,11 @@ class SkillRouter:
             )
         self.limits: Limits = limits
         self.budget = self.limits.max_tokens * settings.budget_share / self.limits.tokens_per_char  # characters per call
-        # Verification carries every candidate's head twice: once in its own `fits` question, once as an option
-        # of the pick.
-        longest = max((len(s.description) for s in catalog), default=0)
-        per_candidate = 2 * settings.head_chars + longest + len(settings.fits_question)
-        check = settings.request_chars + settings.context_chars + settings.max_candidates * per_candidate + SPARE_CHARS
+        # A provider's limit covers the state plus the longest question. In verification that is the pick, which
+        # carries every candidate's description and head as its options; a `fits` question carries one head.
+        option = max((len(s.name) + len(s.description) for s in catalog), default=0) + settings.head_chars
+        longest_question = max(len(settings.pick_question) + settings.max_candidates * option, settings.head_chars)
+        check = settings.request_chars + settings.context_chars + longest_question + SPARE_CHARS
         if check > self.budget:
             raise JudgeMisconfigured(
                 f"settings do not fit the provider's limit: verification needs about {check} characters, "
