@@ -1,6 +1,6 @@
 [project]
 name = "langchain-loadout"
-version = "0.1.1"
+version = "0.2.0"
 description = "Per-turn skill selection for LangChain and LangGraph agents: a judge picks the loadout, the catalog stays out of the prompt."
 readme = "README.md"
 authors = [
