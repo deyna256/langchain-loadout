@@ -54,6 +54,8 @@ async def check_judge(judge: Judge) -> None:
     _require(limits.max_tokens > 0, f"limits.max_tokens is {limits.max_tokens}, expected a positive number")
     _require(limits.max_options > 1, f"limits.max_options is {limits.max_options}, expected more than one option")
     _require(limits.tokens_per_char > 0, f"limits.tokens_per_char is {limits.tokens_per_char}, expected a positive number")
+    timeout = getattr(judge, "timeout", None)
+    _require(timeout is None or timeout > 0, f"timeout is {timeout}, expected a positive number of seconds or None")
 
     answers = await judge.ask(STATE, QUESTIONS)
 

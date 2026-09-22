@@ -16,7 +16,6 @@ from typesafe_sdk import (
 )
 
 from langchain_loadout import JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
-from langchain_loadout.providers import jev
 from langchain_loadout.providers.jev import JevJudge
 
 
@@ -34,6 +33,7 @@ class Client:
 
     async def system_one(self, state: Any, questions: Any, **kwargs: Any) -> Any:
         self.asked = (state, questions)
+        self.kwargs = kwargs
         if self.raises:
             raise self.raises
         answers = {key: _choice(q.criteria) if isinstance(q, Choice) else NoulAnswer(noul=0.75) for key, q in questions.items()}
@@ -94,12 +94,11 @@ async def test_an_unexpected_answer_type_is_reported():
         await JevJudge(Odd()).ask({}, {"need": YesNo("Is a skill needed?")})
 
 
-def test_timeout_reaches_the_default_client_and_is_refused_with_a_client_of_your_own(monkeypatch):
-    built = {}
-    monkeypatch.setattr(jev, "AsyncTypeSafeClient", lambda **kw: built.update(kw))
+async def test_the_judges_timeout_goes_into_every_request_over_the_clients_own():
+    client = Client()
 
-    JevJudge(timeout=50.0)
+    await JevJudge(client, timeout=50.0).ask({}, {"need": YesNo("Is a skill needed?")})
+    assert client.kwargs["timeout"] == 50.0
 
-    assert built["timeout"] == 50.0
-    with pytest.raises(ValueError, match="timeout"):
-        JevJudge(Client(), timeout=50.0)
+    await JevJudge(client).ask({}, {"need": YesNo("Is a skill needed?")})
+    assert client.kwargs["timeout"] is None  # the client keeps its own

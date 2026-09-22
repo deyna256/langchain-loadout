@@ -11,9 +11,10 @@ Script = Callable[[Mapping[str, object], Questions], Mapping[str, Answer]]
 class ScriptedJudge:
     """Answers whatever `script` returns and remembers every call, so a test can assert on them."""
 
-    def __init__(self, script: Script, limits: Limits | None = None) -> None:
+    def __init__(self, script: Script, limits: Limits | None = None, timeout: float | None = None) -> None:
         self.script = script
         self.limits = limits or Limits()
+        self.timeout = timeout
         self.calls: list[tuple[Mapping[str, object], Questions]] = []
 
     async def ask(self, state: Mapping[str, object], questions: Questions) -> Mapping[str, Answer]:

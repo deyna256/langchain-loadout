@@ -74,10 +74,16 @@ class Judge(Protocol):
     call. Declare `Limits()` to say the provider has none; leaving it out is an error, because a silent
     default would split blind.
 
+    An adapter may declare `timeout`, the limit on one call in seconds. The router enforces it on every call,
+    whatever the adapter, and an adapter passes it on to its client, so that the provider's own default does
+    not cut the call short first. Left out or `None`, a call is limited only by the decision's
+    `Settings.timeout` and by the provider.
+
     Failures are reported as `JudgeUnavailable` when a retry could help and `JudgeMisconfigured` when it
     could not. Anything else an adapter raises is treated as unavailable.
     """
 
     limits: Limits
+    timeout: float | None
 
     async def ask(self, state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> Mapping[str, Answer]: ...

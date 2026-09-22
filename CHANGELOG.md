@@ -13,8 +13,10 @@ Add the entry for a change in the same commit as the change itself.
 
 ### Added
 
-- `JevJudge(timeout=...)`: the limit on each call to Jev, which was the SDK's 10 s and could only be changed
-  by building the client by hand.
+- `Judge.timeout`: a judge may declare the limit on one call, in seconds. The router enforces it on every
+  call, whatever the adapter, and reports a cut call as unavailable; `Settings.timeout` still limits the
+  whole decision. `JevJudge(timeout=...)` passes it into every request, over the SDK's 10 s, which could
+  only be changed by building the client by hand. `ScriptedJudge` and `check_judge` know it too.
 
 ### Changed
 

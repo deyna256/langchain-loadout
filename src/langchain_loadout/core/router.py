@@ -26,7 +26,7 @@ import time
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from langchain_loadout.core.judge import Judge, JudgeMisconfigured, Limits, Pick, YesNo
+from langchain_loadout.core.judge import Answer, Judge, JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
 from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Trace, Turn
 
 # Every question the judge is asked lives in `Settings`, so a product can write them for its own domain.
@@ -86,6 +86,10 @@ class SkillRouter:
                 f"{type(judge).__name__} does not declare limits; add `limits = Limits(...)`, or `Limits()` if the provider has none"
             )
         self.limits: Limits = limits
+        timeout = getattr(judge, "timeout", None)  # optional in the protocol: absent means no per-call limit
+        if timeout is not None and not timeout > 0:
+            raise JudgeMisconfigured(f"{type(judge).__name__}.timeout is {timeout}; expected a positive number of seconds or None")
+        self.call_timeout: float | None = timeout
         self.budget = self.limits.max_tokens * settings.budget_share / self.limits.tokens_per_char  # characters per call
         # A provider's limit covers the state plus the longest question. In verification that is the pick, which
         # carries every candidate's description and head as its options; a `fits` question carries one head.
@@ -126,7 +130,7 @@ class SkillRouter:
         # would end about one turn in fifty on its own and cost every other turn a round trip; asked in
         # parallel it costs neither.
         gate, ranked = await asyncio.gather(
-            self.judge.ask(base, {"need": YesNo(s.need_question)}),
+            self._ask(base, {"need": YesNo(s.need_question)}),
             self._rank(base, list(self.skills), s.max_candidates),
         )
         ranking, parts = ranked
@@ -148,7 +152,7 @@ class SkillRouter:
         if len(heads) > 1:
             options = {n: f"{self.skills[n].description}\n\n{head}" for n, head in heads.items()}
             questions["pick"] = Pick(s.pick_question, options)
-        answers = await self.judge.ask(base, questions) if questions else {}
+        answers = await self._ask(base, questions) if questions else {}
         fits = {n: answers[f"fits:{n}"].yes for n in heads}
         picked = {n: p for n, p in answers["pick"].probabilities.items() if n in heads} if "pick" in answers else {}
         return decide_from_trace(s, replace(trace, fits=fits, picked=picked, stage="verify", seconds=elapsed()))
@@ -200,9 +204,18 @@ class SkillRouter:
             ok = [r for r in results if not isinstance(r, BaseException)]
             return ok, None if ok else err
 
+    async def _ask(self, state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> Mapping[str, Answer]:
+        """One call to the judge, cut at the judge's own `timeout`. A cut call is unavailable, like any other
+        provider failure; the decision's timeout, when it fires, passes through untouched."""
+        try:
+            async with asyncio.timeout(self.call_timeout):
+                return await self.judge.ask(state, questions)
+        except TimeoutError as err:
+            raise JudgeUnavailable(f"the judge did not answer within {self.call_timeout} s") from err
+
     async def _pick(self, state: Mapping[str, object], names: list[str]) -> Ranking:
         options = {n: self.skills[n].description for n in names}
-        picked = await self.judge.ask(state, {"skill": Pick(self.settings.rank_question, options)})
+        picked = await self._ask(state, {"skill": Pick(self.settings.rank_question, options)})
         ranked = sorted(picked["skill"].probabilities.items(), key=lambda kv: kv[1], reverse=True)
         return [(n, p) for n, p in ranked if n in options]
 

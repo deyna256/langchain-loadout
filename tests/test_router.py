@@ -6,7 +6,7 @@ from dataclasses import replace
 import pytest
 from conftest import skill
 
-from langchain_loadout import Answer, Pick, Settings, Skill, SkillRouter, Trace, Turn, YesNo, decide_from_trace
+from langchain_loadout import Answer, JudgeMisconfigured, Pick, Settings, Skill, SkillRouter, Trace, Turn, YesNo, decide_from_trace
 from langchain_loadout.testing import ScriptedJudge, yes
 
 CATALOG = [skill(n) for n in ("visa-statement", "spending-by-category", "subscriptions", "card-limits", "dispute")]
@@ -205,6 +205,22 @@ async def test_slow_judge_is_cut_by_timeout_and_changes_nothing():
 
     assert (d.load, d.suggest) == ((), ())
     assert d.trace.failure == "timeout"
+
+
+async def test_the_judges_own_timeout_cuts_each_call_within_a_generous_decision_timeout():
+    judge = Boom(fail_on=1, pick={}, slow=5)
+    judge.timeout = 0.05
+
+    d = await SkillRouter(CATALOG, judge, Settings(timeout=30)).decide(Turn("something"))
+
+    assert (d.load, d.suggest) == ((), ())
+    assert "did not answer within 0.05 s" in d.trace.failure
+    assert d.trace.seconds < 5
+
+
+def test_a_judge_timeout_that_is_not_positive_fails_at_once():
+    with pytest.raises(JudgeMisconfigured, match="timeout"):
+        SkillRouter(CATALOG, ScriptedJudge(lambda s, q: {}, timeout=0))
 
 
 async def test_verification_failure_suggests_best_of_the_ranking():

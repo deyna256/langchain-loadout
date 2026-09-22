@@ -34,11 +34,9 @@ class JevJudge:
         on_usage: Callable[[int], None] | None = None,
         timeout: float | None = None,
     ) -> None:
-        """`timeout` is the limit on each call to Jev, in seconds; left out, it is the SDK's default of 10. It
-        configures the client built here, so it cannot be combined with a `client` of your own. The limit on a
-        whole decision, which may take several calls, is `Settings.timeout`."""
-        if client is not None and timeout is not None:
-            raise ValueError("timeout configures the default client; set it on the client you pass instead")
+        """`timeout` is the limit on each call, in seconds (see `Judge`): it goes into every request, over the
+        client's own setting. Left out, a call keeps the client's timeout, 10 s by default in the SDK."""
+        self.timeout = timeout
         # No retries: a decision has two seconds, and a late answer is useless because the fallback has run.
         self.client = client or AsyncTypeSafeClient(retry=RetryPolicy(max_retries=0), timeout=timeout)
         self.on_usage = on_usage  # tokens per call, so cost can be attributed to decisions under concurrency
@@ -47,7 +45,7 @@ class JevJudge:
         asked = {key: _to_jev(q) for key, q in questions.items()}
         try:
             # The port requires the state to be JSON-serialisable, which is what JSONContent means.
-            response = await self.client.system_one(cast(JSONContent, dict(state)), asked)
+            response = await self.client.system_one(cast(JSONContent, dict(state)), asked, timeout=self.timeout)
         except PERMANENT as err:
             raise JudgeMisconfigured(f"Jev rejected the credentials: {err}") from err
         except Exception as err:
