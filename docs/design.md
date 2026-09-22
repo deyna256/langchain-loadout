@@ -12,8 +12,8 @@ user's request rather than on the catalog.
 ## What the measurements settled
 
 This section records the earlier measurements that informed the design. The latest benchmark, of the
-0.2.2 release, is reported in the [README](../README.md#results). Three findings from it shaped this
-version and the next steps:
+0.2.2 release, is reported in the [README](../README.md#results). What it settled, and what it left for the
+next version:
 
 - **Selection is no longer the weak point.** The loaded skill was the right one in 96% of loads, and the
   right skill reached the model in 85% of turns against 55% with the full list. Loadout answered 90% of
