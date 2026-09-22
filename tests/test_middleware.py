@@ -12,9 +12,10 @@ from deepagents.backends.protocol import FileDownloadResponse
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langgraph.checkpoint.memory import InMemorySaver
 
 from langchain_loadout import Answer, Limits, Pick, Settings, YesNo
-from langchain_loadout.langchain import LoadoutSkillsMiddleware, recent_context
+from langchain_loadout.langchain import LoadoutSkillsMiddleware, is_skill_message, recent_context
 from langchain_loadout.testing import ScriptedJudge, yes
 
 SKILLS = {
@@ -108,14 +109,29 @@ async def test_the_skill_follows_the_request_and_the_system_message_stays_the_sa
     assert "Instruction text for visa-statement" in skill.text
 
 
-async def test_the_skill_message_is_not_written_into_the_conversation(backend):
-    model = RecordingModel(messages=iter([AIMessage("done")]))
-    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"))
-    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+async def test_next_turn_starts_with_everything_the_previous_turn_sent(backend):
+    # The skill message stays in the conversation: the provider's cache serves a request only as far as it
+    # repeats an earlier one, so the next turn must begin with everything the previous one sent.
+    model = RecordingModel(messages=iter([AIMessage("done"), AIMessage("done again")]))
+    judge = judge_choosing("visa-statement")
+    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge)
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware], checkpointer=InMemorySaver())
+    thread = {"configurable": {"thread_id": "t"}}
 
-    result = await agent.ainvoke({"messages": [HumanMessage("I need a statement for the embassy")]})
+    await agent.ainvoke({"messages": [HumanMessage("I need a statement for the embassy")]}, thread)
+    result = await agent.ainvoke({"messages": [HumanMessage("And one for the other embassy")]}, thread)
 
-    assert [m.text for m in result["messages"]] == ["I need a statement for the embassy", "done"]
+    first, second = model.seen
+    assert [(m.type, m.text) for m in second[: len(first)]] == [(m.type, m.text) for m in first]
+    assert "Instruction text for visa-statement" in second[-1].text  # written again, not referred to
+    assert [judge_state["request"] for judge_state, _ in judge.calls][-1] == "And one for the other embassy"
+    assert "Instruction text" not in "".join(str(s.get("context", "")) for s, _ in judge.calls)
+    assert [m.text for m in result["messages"] if not is_skill_message(m)] == [
+        "I need a statement for the embassy",
+        "done",
+        "And one for the other embassy",
+        "done again",
+    ]
 
 
 async def test_failure_falls_back_to_the_usual_full_list(backend):

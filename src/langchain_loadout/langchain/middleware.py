@@ -5,13 +5,16 @@ user message Loadout decides which of them are needed, and the model sees only t
 request passes to the ordinary middleware untouched, so the model sees the full list exactly as it would
 without Loadout.
 
-What the model sees is laid out for the provider's prompt cache, which matches a request from its start
-up to the first changed character. The system message gets a section that is the same on every call, and
-the turn's skills go in a message right after the user's request. Put in the system message, they changed
-the head of every turn's first request, and the whole conversation after it was read again uncached (37%
-of that call's input came from the cache on the bank testbed, against 94% with the full list). Here only
-what follows the request changes. The message is added to the model request, not to the agent's state:
-nothing the user sees is changed, and nothing has to survive until the next turn.
+What the model sees is laid out for the provider's prompt cache, which matches a request from its start:
+a new request is served from the cache only as far as it repeats an earlier one. The system message gets a
+section that is the same on every call, and the turn's skills go in a message right after the user's
+request, which is written into the conversation. Put in the system message, they changed the head of every
+turn's first request (37% of that call's input came from the cache on the bank testbed, against 94% with the
+full list). Added to the model request alone, they vanished on the next turn, so no earlier request was a
+prefix of the new one: on the testbed the conversation came from the cache at the first call of a turn in
+16-24% of turns, against 64% without the message. The message is marked, never taken for the user's request
+and kept out of the context the judge reads. A skill loaded on an earlier turn is written again rather than
+referred to: summarization may have replaced that turn in what the model sees while the state still holds it.
 
 Selection, instruction reads and `find_skill` use the current execution's catalog. No catalog or router
 is cached on the middleware instance, which may be shared by concurrent executions.
@@ -61,18 +64,23 @@ LISTED = """Other skills that may fit (read one's SKILL.md with `read_file`, `li
 
 class LoadoutState(SkillsState):
     loadout_turn: NotRequired[Annotated[str, PrivateStateAttr]]  # id of the user message this decision was made for
-    # These three carry the decision from `abefore_model` to `awrap_model_call` within one invocation of
-    # the graph. Nothing is read back from a previous turn, so no checkpointer is required.
     loadout_failed: NotRequired[Annotated[bool, PrivateStateAttr]]  # a failure means the ordinary full list
-    loadout_loaded: NotRequired[Annotated[list[str], PrivateStateAttr]]  # the text of these skills goes into the request
-    loadout_suggest: NotRequired[Annotated[list[str], PrivateStateAttr]]  # these are listed only
+
+
+def is_skill_message(message: AnyMessage) -> bool:
+    """The message Loadout added after a request: not something the user said."""
+    return "loadout" in message.additional_kwargs
 
 
 def recent_context(messages: Sequence[AnyMessage], limit: int = 6) -> str:
     """The default context: the conversation leading up to the current user message — what the user asked
     and what the agent answered. Tool calls and their results are left out: after a turn with tools the last
     few messages are all tool output, and the previous request would drop out of the window."""
-    said = [m for m in messages if isinstance(m, HumanMessage) or (isinstance(m, AIMessage) and not m.tool_calls)]
+    said = [
+        m
+        for m in messages
+        if (isinstance(m, HumanMessage) and not is_skill_message(m)) or (isinstance(m, AIMessage) and not m.tool_calls)
+    ]
     lines = [f"{m.type}: {m.text[:500]}" for m in said if m.text.strip()]
     return "\n".join(lines[-limit:])
 
@@ -107,7 +115,14 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         # the graph actually builds, so the narrowing has to be stated here rather than in the signature.
         ours = cast(LoadoutState, state)
         messages = ours["messages"]
-        last = next((i for i in range(len(messages) - 1, -1, -1) if isinstance(messages[i], HumanMessage)), None)
+        last = next(
+            (
+                i
+                for i in range(len(messages) - 1, -1, -1)
+                if isinstance(messages[i], HumanMessage) and not is_skill_message(messages[i])
+            ),
+            None,
+        )
         if last is None:
             return None
         turn_id = messages[last].id or str(last)
@@ -120,12 +135,21 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
             self.on_decision(decision)
         if decision.trace.failure:
             return {"loadout_turn": turn_id, "loadout_failed": True}
-        return {
-            "loadout_turn": turn_id,
-            "loadout_failed": False,
-            "loadout_loaded": list(decision.load),
-            "loadout_suggest": list(decision.suggest),
-        }
+        by_name = {m["name"]: m for m in ours.get("skills_metadata", [])}
+        loaded = [n for n in decision.load if n in by_name]
+        try:
+            texts = {n: await self._text(by_name[n]["path"]) for n in loaded}
+        except (OSError, UnicodeError) as err:
+            logger.warning("Skill instructions could not be read; using the full catalog (%s)", type(err).__name__)
+            return {"loadout_turn": turn_id, "loadout_failed": True}
+        parts = [LOADED.format(name=n, text=t) for n, t in texts.items()]
+        if listed := [by_name[n] for n in decision.suggest if n in by_name]:
+            parts.append(LISTED.format(skills_list=self._format_skills_list(listed)))
+        update: dict[str, Any] = {"loadout_turn": turn_id, "loadout_failed": False}
+        if parts:
+            # Right after the request: the turn's later calls and the next turns all start with it.
+            update["messages"] = [HumanMessage("\n\n".join(parts), additional_kwargs={"loadout": loaded})]
+        return update
 
     # --- applying it: what the model sees -----------------------------------------------------------
 
@@ -135,25 +159,8 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         state = request.state
         if "loadout_turn" not in state or state.get("loadout_failed"):
             return await super().awrap_model_call(request, handler)  # the ordinary path: the full list
-        loaded = state.get("loadout_loaded", [])
-        picked = [*loaded, *state.get("loadout_suggest", [])]
-        by_name = {m["name"]: m for m in state.get("skills_metadata", [])}
-        try:
-            texts = {name: await self._text(by_name[name]["path"]) for name in loaded if name in by_name}
-        except (OSError, UnicodeError) as err:
-            # Keep the model call outside this boundary: its errors must not trigger a second call.
-            logger.warning("Skill instructions could not be read; using the full catalog (%s)", type(err).__name__)
-            return await super().awrap_model_call(request, handler)
-        system = append_to_system_message(request.system_message, PROMPT)
-        parts = [LOADED.format(name=name, text=text) for name, text in texts.items()]
-        if listed := [by_name[n] for n in picked if n in by_name and n not in texts]:
-            parts.append(LISTED.format(skills_list=self._format_skills_list(listed)))
-        if not parts:
-            return await handler(request.override(system_message=system))
-        messages = list(request.messages)
-        last = next((i for i in range(len(messages) - 1, -1, -1) if isinstance(messages[i], HumanMessage)), len(messages) - 1)
-        messages.insert(last + 1, HumanMessage("\n\n".join(parts)))
-        return await handler(request.override(system_message=system, messages=messages))
+        # The turn's skills are already in the conversation, after the request.
+        return await handler(request.override(system_message=append_to_system_message(request.system_message, PROMPT)))
 
     # --- catalog and search -------------------------------------------------------------------------
 

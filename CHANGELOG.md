@@ -9,6 +9,14 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Changed
+
+- The turn's skill message is written into the conversation instead of being added to the model request
+  alone. Removed on the next turn, it stopped any earlier request from being a prefix of the new one, and
+  the provider's cache lost the conversation: on the bank testbed the first call of a turn got it from the
+  cache in 16–24% of turns, against 64% without the message. The message is marked (`is_skill_message`),
+  never taken for the user's request and kept out of the judge's context.
+
 ## [0.2.1] - 2026-09-22
 
 ### Added

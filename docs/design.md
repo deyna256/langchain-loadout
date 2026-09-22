@@ -157,12 +157,14 @@ a part is refused anyway, it is asked again in halves.
 `LoadoutSkillsMiddleware` takes the place of `SkillsMiddleware`, under the same name. Skills are still
 discovered by the ordinary middleware through `state["skills_metadata"]`; on a new user message Loadout
 decides, and the model sees only the picked skills. The layout follows the provider's prompt cache, which
-matches a request from its start up to the first changed character: the system message gets a section
-that is the same on every call, and the turn's skills — the loaded one's instructions, the others by name
-and description — go in a message right after the user's request. What the turn picked changes only what
-follows the request, and the conversation before it stays cached. The message is added to a copy of the
-request, not to the agent's state, so nothing the user sees changes and nothing has to survive until the
-next turn. On failure the request goes to the ordinary middleware with the full list.
+serves a new request only as far as it repeats an earlier one: the system message gets a section that is
+the same on every call, and the turn's skills — the loaded one's instructions, the others by name and
+description — go in a message right after the user's request, written into the conversation. So every call
+of the turn, and the next turn's first call, begins with everything sent before. Kept in the request alone,
+the message vanished on the next turn and took the conversation's cache with it: on the testbed the first
+call of a turn got the conversation from the cache in 16–24% of turns, against 64% without the message. The
+message is marked (`is_skill_message`), is never taken for the user's request and stays out of the judge's
+context. On failure the request goes to the ordinary middleware with the full list.
 
 The judge sees the turn's context as the product assembles it; the default, `recent_context`, is the
 last few things the user asked and the agent answered, without tool calls and their results, which would
@@ -171,11 +173,11 @@ is not in the list. The optimisation applies when the agent is run asynchronousl
 
 ## Known limits
 
-- **A turn's skills are not cached across turns.** They follow the request and are not kept in the
-  conversation, so the next turn reads its own skills, and the tail of the previous turn, uncached. With
-  the skills in the system message the whole conversation was read uncached on each turn's first call
-  instead; keeping them in the conversation would need the "already loaded" knowledge the next limit
-  explains the library does not rely on.
+- **A skill loaded again is written again.** The conversation keeps every turn's skill message, and a
+  skill picked on consecutive turns appears in each of them. Referring back to the earlier copy would need
+  the "already loaded" knowledge the limit below explains the library does not rely on: summarization can
+  replace that turn in what the model sees while the state still holds it. The repeat is read from the cache
+  on later turns, so it costs context rather than recomputation.
 - **Two seconds is out of reach on a large catalog.** On 236 skills the catalog splits into three
   parts, so a full pass costs about 58k tokens and about 3 s; only the cheap decisions land inside two
   seconds. The size estimate is part of the problem: 0.8 tokens per character is assumed against about
