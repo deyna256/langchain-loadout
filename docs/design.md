@@ -112,6 +112,9 @@ assistant, and wording that names the product's own domain separates better. `Tr
 ranking probabilities, the answer to every question, where the decision ended, how long it took and
 what failed.
 
+`Settings.timeout` limits a whole decision, which may take several calls to the judge. Each call has a limit
+of its own in the adapter: `JevJudge(timeout=...)`, 10 s by default.
+
 Each threshold is compared against the trace field of the same name: `need_at` against `trace.need`,
 `load_at` against verification's pick in `trace.picked`, `suggest_at` against each candidate's
 `trace.fits`, `skip_verify_at` against the first of `trace.candidates`. Candidates are ordered by the pick;

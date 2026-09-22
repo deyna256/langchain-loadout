@@ -11,6 +11,11 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [0.2.2] - 2026-09-22
 
+### Added
+
+- `JevJudge(timeout=...)`: the limit on each call to Jev, which was the SDK's 10 s and could only be changed
+  by building the client by hand.
+
 ### Changed
 
 - The turn's skill message is written into the conversation instead of being added to the model request

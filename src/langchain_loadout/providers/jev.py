@@ -28,9 +28,19 @@ class JevJudge:
     # Tokens per character: Russian descriptions measure about 0.68, so 0.8 leaves a margin.
     limits = Limits(max_tokens=32_000, max_options=255, tokens_per_char=0.8)
 
-    def __init__(self, client: AsyncTypeSafeClient | None = None, on_usage: Callable[[int], None] | None = None) -> None:
+    def __init__(
+        self,
+        client: AsyncTypeSafeClient | None = None,
+        on_usage: Callable[[int], None] | None = None,
+        timeout: float | None = None,
+    ) -> None:
+        """`timeout` is the limit on each call to Jev, in seconds; left out, it is the SDK's default of 10. It
+        configures the client built here, so it cannot be combined with a `client` of your own. The limit on a
+        whole decision, which may take several calls, is `Settings.timeout`."""
+        if client is not None and timeout is not None:
+            raise ValueError("timeout configures the default client; set it on the client you pass instead")
         # No retries: a decision has two seconds, and a late answer is useless because the fallback has run.
-        self.client = client or AsyncTypeSafeClient(retry=RetryPolicy(max_retries=0))
+        self.client = client or AsyncTypeSafeClient(retry=RetryPolicy(max_retries=0), timeout=timeout)
         self.on_usage = on_usage  # tokens per call, so cost can be attributed to decisions under concurrency
 
     async def ask(self, state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> Mapping[str, Answer]:

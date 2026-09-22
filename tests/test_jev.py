@@ -16,6 +16,7 @@ from typesafe_sdk import (
 )
 
 from langchain_loadout import JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
+from langchain_loadout.providers import jev
 from langchain_loadout.providers.jev import JevJudge
 
 
@@ -91,3 +92,14 @@ async def test_an_unexpected_answer_type_is_reported():
 
     with pytest.raises(TypeError, match="unexpected answer"):
         await JevJudge(Odd()).ask({}, {"need": YesNo("Is a skill needed?")})
+
+
+def test_timeout_reaches_the_default_client_and_is_refused_with_a_client_of_your_own(monkeypatch):
+    built = {}
+    monkeypatch.setattr(jev, "AsyncTypeSafeClient", lambda **kw: built.update(kw))
+
+    JevJudge(timeout=50.0)
+
+    assert built["timeout"] == 50.0
+    with pytest.raises(ValueError, match="timeout"):
+        JevJudge(Client(), timeout=50.0)
