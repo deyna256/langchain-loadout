@@ -9,6 +9,11 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Changed
+
+- Package metadata: a description that names the pluggable judge, keywords, classifiers and project URLs,
+  so the package is easier to find on PyPI.
+
 ## [0.2.2] - 2026-09-22
 
 ### Added

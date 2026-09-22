@@ -11,8 +11,18 @@ user's request rather than on the catalog.
 
 ## What the measurements settled
 
-This section records the earlier measurements that informed the design. The latest benchmark of the
-PyPI 0.1.0 release is reported in the [README](../README.md#results).
+This section records the earlier measurements that informed the design. The latest benchmark, of the
+0.2.2 release, is reported in the [README](../README.md#results). Three findings from it shaped this
+version and the next steps:
+
+- **Selection is no longer the weak point.** The loaded skill was the right one in 96% of loads, and the
+  right skill reached the model in 86% of turns against 58% with the full list. Perfect selection — always
+  loading the skill the question was written for — still answered 87% against 88% for the full list.
+- **A wrong skill is the costly error.** Turns worked from a wrong skill were answered correctly 40% of the
+  time, against 86% with the right one. A variant that keeps the full list and adds Loadout's pick after the
+  request, the design of TypeSafe's cookbook, lost less on the same mistakes (83%), at 3.2 times the context.
+- **Loading any skill hurt yes/no questions** on the testbed: 64% with Loadout and 79% with perfect
+  selection, against 93% with the full list and 100% with no skills at all (14 turns).
 
 Two measurements on a testbed — a Russian bank-statement assistant with a generated catalog and an
 agent built on deepagents — set the terms the rest of this document is written in.

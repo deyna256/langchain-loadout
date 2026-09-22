@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="title desc">
+  <title id="title">How Loadout decides a turn</title>
+  <desc id="desc">A user turn goes through ranking with a need gate, then verification, then the skill is loaded, offered in a short list, or nothing is loaded. Every question is answered by a pluggable judge: Jev, a self-hosted model, or static rules. On failure the agent gets the full catalog.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#131b3a"/>
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#ffffff" opacity="0.07"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10z" fill="#637393"/>
+    </marker>
+  </defs>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .caption { font-size: 13px; letter-spacing: 2px; fill: #a3aecb; }
+    .head { font-size: 18px; font-weight: 700; fill: #ffffff; }
+    .body { font-size: 13px; fill: #bac4e1; }
+  </style>
+  <rect width="1200" height="380" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="380" rx="24" fill="url(#dots)"/>
+  <text x="64" y="64" class="mono caption">ONE DECISION PER USER TURN</text>
+
+  <!-- the turn -->
+  <rect x="64" y="104" width="170" height="104" rx="14" fill="#18213c" stroke="#394669"/>
+  <text x="84" y="138" class="head">User turn</text>
+  <text x="84" y="164" class="body">request</text>
+  <text x="84" y="184" class="body">+ recent conversation</text>
+
+  <!-- stage 1 -->
+  <rect x="284" y="104" width="230" height="104" rx="14" fill="#1a2350" stroke="#a5b4fc" stroke-width="1.5"/>
+  <text x="304" y="138" class="head">1 · Rank + gate</text>
+  <text x="304" y="164" class="body">catalog by description,</text>
+  <text x="304" y="184" class="body">split to fit the judge's limits</text>
+
+  <!-- stage 2 -->
+  <rect x="564" y="104" width="230" height="104" rx="14" fill="#1a2350" stroke="#a5b4fc" stroke-width="1.5"/>
+  <text x="584" y="138" class="head">2 · Verify</text>
+  <text x="584" y="164" class="body">reads the top SKILL.md heads,</text>
+  <text x="584" y="184" class="body">skipped when ranking is sure</text>
+
+  <!-- outcomes -->
+  <rect x="844" y="92" width="292" height="40" rx="10" fill="#142f41" stroke="#67e8f9"/>
+  <circle cx="864" cy="112" r="4" fill="#67e8f9"/>
+  <text x="880" y="117" font-size="15" fill="#e6edf3">Load its instructions</text>
+  <rect x="844" y="140" width="292" height="40" rx="10" fill="#1a2344" stroke="#818cf8"/>
+  <circle cx="864" cy="160" r="4" fill="#a5b4fc"/>
+  <text x="880" y="165" font-size="15" fill="#e6edf3">Offer a short list</text>
+  <rect x="844" y="188" width="292" height="40" rx="10" fill="#18213c" stroke="#394669"/>
+  <circle cx="864" cy="208" r="4" fill="#637393"/>
+  <text x="880" y="213" font-size="15" fill="#e6edf3">Load nothing</text>
+
+  <g fill="none" stroke="#637393" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M234 156H278"/>
+    <path d="M514 156H558"/>
+    <path d="M794 156C818 156 818 112 838 112"/>
+    <path d="M794 156H838"/>
+    <path d="M794 156C818 156 818 208 838 208"/>
+  </g>
+
+  <!-- the judge -->
+  <rect x="284" y="250" width="510" height="64" rx="14" fill="none" stroke="#a5b4fc" stroke-dasharray="5 6"/>
+  <text x="304" y="278" class="head" font-size="16">Judge</text>
+  <text x="304" y="300" class="mono" font-size="13" fill="#a3aecb">Jev · self-hosted model · static rules · your own</text>
+  <g stroke="#46577e" stroke-width="1.5" stroke-dasharray="3 5">
+    <path d="M399 208V250"/>
+    <path d="M679 208V250"/>
+  </g>
+
+  <text x="990" y="278" text-anchor="middle" class="mono" font-size="13" fill="#a3aecb">Timeout or outage:</text>
+  <text x="990" y="300" text-anchor="middle" class="mono" font-size="13" fill="#a3aecb">the full catalog, as without Loadout</text>
+</svg>

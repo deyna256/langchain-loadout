@@ -1,7 +1,25 @@
 [project]
 name = "langchain-loadout"
 version = "0.2.2"
-description = "Per-turn skill selection for LangChain and LangGraph agents: a judge picks the loadout, the catalog stays out of the prompt."
+description = "Per-turn skill routing for LangChain deepagents: a pluggable judge (Jev included, or your own) loads only the SKILL.md skills each turn needs, keeping a catalog of hundreds out of the prompt."
+keywords = [
+    "langchain", "langgraph", "deepagents", "agent-skills", "skill-md", "skill-routing", "skill-selection",
+    "llm-routing", "context-engineering", "middleware", "jev", "typesafe", "self-hosted", "ai-agents", "llm",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+    "Framework :: AsyncIO",
+]
 readme = "README.md"
 authors = [
     { name = "deyna256", email = "literallybugcreator@gmail.com" }
@@ -11,6 +29,12 @@ dependencies = [
     "langchain>=1.0",
     "deepagents>=0.7.15",
 ]
+
+[project.urls]
+Homepage = "https://github.com/deyna256/langchain-loadout"
+Documentation = "https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md"
+Changelog = "https://github.com/deyna256/langchain-loadout/blob/main/CHANGELOG.md"
+Issues = "https://github.com/deyna256/langchain-loadout/issues"
 
 [project.optional-dependencies]
 jev = ["typesafe-sdk>=0.7.0"]

@@ -24,7 +24,7 @@
   <text x="64" y="80" class="mono" font-size="14" letter-spacing="3" fill="#a5b4fc">PER-TURN SKILL SELECTION</text>
   <text x="58" y="185" font-size="88" font-weight="800" letter-spacing="-3" fill="url(#word)">Loadout</text>
   <text x="64" y="232" font-size="24" fill="#e6edf3">The right skills. Every turn.</text>
-  <text x="64" y="290" class="mono" font-size="15" fill="#a3aecb">LangChain · deepagents · Python</text>
+  <text x="64" y="290" class="mono" font-size="15" fill="#a3aecb">LangChain · deepagents · Jev or any judge</text>
 
   <text x="653" y="80" text-anchor="middle" class="mono caption">CATALOG</text>
   <text x="1043" y="80" text-anchor="middle" class="mono caption">AGENT CONTEXT</text>

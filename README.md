@@ -1,16 +1,24 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/banner.svg" alt="Loadout — selects the skills each turn needs from a larger catalog" width="100%">
+<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/banner.svg" alt="Loadout: per-turn skill selection for LangChain deepagents, with a pluggable judge" width="100%">
 
-<p><strong>Per-turn skill selection for deepagents. Load the instructions each turn needs,
-instead of the full catalog.</strong></p>
+<h3>Per-turn skill routing for LangChain deepagents</h3>
+
+<p>Keep hundreds of <code>SKILL.md</code> skills out of the prompt. For each user turn, a fast judge decides
+which skills it needs, and only those are loaded. Bring any judge: a hosted model, a self-hosted one, or
+plain rules. An adapter for <a href="https://docs.typesafe.ai/introduction">Jev</a> is included.</p>
 
 [![CI](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
-[![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fdeyna256%2Flangchain-loadout%2Fmain%2Fpyproject.toml)](pyproject.toml)
-[![License: MIT](https://img.shields.io/github/license/deyna256/langchain-loadout)](LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
+[![License: MIT](https://img.shields.io/github/license/deyna256/langchain-loadout)](https://github.com/deyna256/langchain-loadout/blob/main/LICENSE)
+[![Judge: pluggable](https://img.shields.io/badge/judge-pluggable-4b32c3)](#bring-your-own-judge)
+<br>
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 
-[Quick start](#quick-start) · [Results](#results) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Your own judge](#bring-your-own-judge) · [Results](#results) · [FAQ](#faq) · [Docs](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md)
 
 </div>
 
@@ -18,57 +26,39 @@ instead of the full catalog.</strong></p>
 
 ## Why Loadout
 
-Large skill catalogs take up context on every model call. Loadout ranks and verifies skills for each
-user turn, then loads the relevant instructions or suggests candidates. The agent can also search the
-catalog with `find_skill`.
+[deepagents](https://github.com/langchain-ai/deepagents) lists every skill's name and description in
+the system prompt on every model call. With a handful of skills that is fine. With hundreds, the list
+takes tens of thousands of tokens per call, and the model has to pick the right procedure from a crowd
+of similar ones.
 
-Loadout extends deepagents through LangChain middleware. Its routing core can also be used
-independently of either framework.
+Loadout replaces the built-in `SkillsMiddleware` with one that decides **per user turn**:
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
-**Focused context**<br>
-Confidence determines what gets loaded or suggested. Every threshold is configurable.
-
-</td>
-<td width="50%" valign="top">
-
-**Independent turns**<br>
-No skill state to carry between turns. No checkpointer or additional storage required.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-**Your choice of judge**<br>
-Use the included [Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev) adapter
-or implement the small `Judge` interface.
-
-</td>
-<td valign="top">
-
-**Graceful fallback**<br>
-Decision timeouts and transient judge failures restore the full catalog.
-Configuration errors surface explicitly.
-
-</td>
-</tr>
-</table>
+- **Only what the turn needs.** A confident pick is loaded with its instructions. When the pick is unsure,
+  the model gets a short list of up to three candidates to choose from, and it can search the rest of the
+  catalog with the `find_skill` tool.
+- **Any judge, by design.** The judge is a small protocol: typed questions in, probabilities out. Use the
+  included Jev adapter, a self-hosted inference model, deterministic rules or anything else that can answer.
+  The routing core depends on neither LangChain nor any provider.
+- **Calibrated, not guessed.** Every question is answered with a probability, so "load it", "offer it"
+  and "skip it" are thresholds you can read and tune. They are not buried in a prompt.
+- **Conversation-aware.** The judge also sees the recent conversation, so a follow-up like "and for
+  April?" still routes to the skill the thread is about.
+- **Safe by default.** A timeout or an outage of the judge gives the agent the full catalog, exactly as it
+  would be without Loadout. Bad credentials raise instead of hiding a broken setup.
+- **Cache-friendly.** The system prompt is identical on every call, and the turn's skills are written after
+  the user's message. The provider's prompt cache keeps working across turns.
 
 ## Quick start
 
-**1. Install.** Requires Python 3.11+. The `jev` extra includes the judge adapter and its SDK.
-
 ```sh
-pip install "langchain-loadout[jev]"
+pip install "langchain-loadout[jev]"   # with the Jev adapter
+pip install langchain-loadout          # with your own judge
 ```
 
-**2. Connect your skills.** Place them in `./skills/<name>/SKILL.md` with `name` and `description`
-in YAML front matter. Set `TYPESAFE_API_KEY` and your model provider's credentials
-(`ANTHROPIC_API_KEY` for this example).
+Put skills in `./skills/<name>/SKILL.md`, with `name` and `description` in YAML front matter (the Agent
+Skills format deepagents uses). Set `TYPESAFE_API_KEY` ([get a key](https://console.typesafe.ai/settings/keys))
+and your model provider's key. Jev is the judge in this example; see [below](#bring-your-own-judge) for
+your own.
 
 ```python
 from deepagents import create_deep_agent
@@ -81,48 +71,146 @@ backend = FilesystemBackend(root_dir=".", virtual_mode=True)
 loadout = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=JevJudge())
 
 agent = create_deep_agent(
-    model="anthropic:claude-sonnet-4-5",
+    model="anthropic:claude-sonnet-5",
     backend=backend,
     skills=["/skills/"],
-    middleware=[loadout],
+    middleware=[loadout],  # takes the place of the built-in SkillsMiddleware
 )
 await agent.ainvoke({"messages": [{"role": "user", "content": "I need a statement for the embassy"}]})
 ```
 
-Run the example in an async context. Selection runs on `ainvoke` and `astream`; synchronous calls use
-the ordinary skills middleware. Tune thresholds and questions through `Settings`.
+Selection runs on `ainvoke` and `astream`. A synchronous run falls back to the ordinary skills
+middleware. Requires Python 3.11+.
 
-The public API is evolving: minor releases may introduce breaking changes while the version is `0.x`.
+## How it works
+
+<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/how-it-works.svg" alt="A user turn is ranked with a need gate, then verified; the skill is loaded, offered in a short list, or nothing is loaded. A pluggable judge answers every question; on failure the agent gets the full catalog." width="100%">
+
+On each new user message, Loadout makes one decision, and the rest of the turn's model calls reuse it:
+
+1. **Rank and gate, in parallel.** The judge ranks the catalog by description against the request and the
+   recent conversation. In the same round it answers whether the request needs a skill at all. A catalog
+   larger than the judge's declared limits (for Jev, 32k tokens and 255 options per call) is split into
+   parts, keeping related skills together, and the part winners are ranked again.
+2. **Verify.** The judge reads the start of each top candidate's `SKILL.md`, picks one and checks whether
+   each candidate does what the user asked. A ranking that is already sure skips this second call.
+3. **Load or offer.** A pick verified at 0.9 or higher is loaded with its instructions. Otherwise the model
+   is offered a short list. If no skill is needed, nothing is loaded.
+
+A decision is capped at two seconds by default (`Settings.timeout`). The routing core has no framework
+dependency: `SkillRouter` works on any list of skills.
+
+## Bring your own judge
+
+A judge answers two kinds of question in one call: `Pick` (a probability for every option) and `YesNo`
+(a probability of yes). It declares its per-call `limits`, which the router uses to split a large catalog,
+and optionally a per-call `timeout`:
+
+```python
+from langchain_loadout import Answer, Limits, Pick, YesNo
+
+
+class MyJudge:
+    limits = Limits(max_tokens=8_000, max_options=100)  # what one call can take; Limits() for no limit
+    timeout = 5.0  # seconds per call, enforced by the router; None for no limit
+
+    async def ask(self, state, questions):
+        # state: {"request": ..., "context": ...}; questions: {key: Pick | YesNo}
+        # Call a self-hosted model, a classifier or rules here, and answer every key.
+        return {
+            key: Answer({option: 1 / len(q.options) for option in q.options}) if isinstance(q, Pick) else Answer({"yes": 0.5})
+            for key, q in questions.items()
+        }
+```
+
+Pass it as `LoadoutSkillsMiddleware(..., judge=MyJudge())`. `langchain_loadout.testing.check_judge` checks
+an adapter against the contract, and `ScriptedJudge` answers from a script in your tests. The probabilities
+are compared against thresholds, so the closer they are to calibrated, the better the defaults fit.
 
 ## Results
 
-Latest benchmark on a bank-statement assistant using deepagents and **langchain-loadout 0.1.0 from
-PyPI**: 236 skills, **50 conversations × 5 turns per variant** (250 turns each).
+Benchmark of **langchain-loadout 0.2.2** on a bank-statement assistant built with deepagents: 236 skills,
+**55 conversations × 5 turns** per variant (275 turns each), Jev as the judge, one agent model for all
+variants. "Perfect selection" always loads the skill the question was written for: the ceiling for any router.
 
-| Metric | With Loadout | Full catalog |
+| Metric | Loadout | Full catalog | Perfect selection |
+|---|---|---|---|
+| Input tokens per turn | **29.0k** | 111.1k | 26.1k |
+| Skills in the prompt, characters per call | **5.4k** | 89.2k | 2.7k |
+| Right skill in front of the model | **86%** | 58% | 97% |
+| Loaded skill was the right one | **96%** (227 of 237) | — | 100% |
+| Input from the prompt cache on a new turn | 73% | 94% | — |
+| Correct answers | 83% | **88%** | 87% |
+
+- **3.8× less context per turn**, with the right skill in front of the model far more often.
+- **Accuracy is not distinguishable from the full catalog on this sample**: −5.1 points
+  (95% interval −10.5 to 0.0, sign test p = 0.19). Even perfect selection answered 1.8 points below the
+  full list here, so on this catalog the full list is a strong baseline.
+- **A wrong skill costs the most.** In the 15 turns where the model worked from a wrong skill, 40% of
+  answers were correct. Raise `load_at` if your catalog has many near-duplicate skills.
+- **The cache holds across turns.** 73% of a new turn's first call came from the cache, against 41%
+  before 0.2.2.
+
+Generated data, one judge and one agent model. Fit the thresholds to your own data.
+[Methodology, earlier measurements and known limits →](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md)
+
+## Configuration
+
+Everything is in `Settings`, passed as `LoadoutSkillsMiddleware(..., settings=Settings(...))`:
+
+| Knob | Default | What it does |
 |---|---|---|
-| Correct skill selected | **82%** | 61% |
-| Skills section per model call | **5,174 characters** | 89,150 characters |
-| Input tokens per turn | **34,630** | 113,541 |
-| Answer accuracy | 88% | 86% |
-| Cost per turn | $0.0056 | **$0.0039** |
+| `load_at` | 0.9 | How sure verification must be of its pick to load it |
+| `max_suggest` | 3 | How many candidates may be offered when the pick is unsure |
+| `need_at` | 0.3 | Below this "is a skill needed" probability, nothing is loaded |
+| `skip_verify_at` | 0.9 | Ranking this sure skips verification (`None` turns it off) |
+| `timeout` | 2.0 | Seconds for the whole decision, after which the full catalog is used |
+| `need_question`, `rank_question`, … | general wording | The questions Jev is asked. Naming your domain separates better |
 
-The skills section was **17.2× smaller**, with **3.3× fewer input tokens**, but cost per turn was
-**44% higher**. Smaller prompts do not necessarily mean lower cost when cache reuse changes.
+`JevJudge(timeout=...)` limits each call to Jev. `on_decision=` on the middleware receives every
+decision's trace (probabilities, stage, timing) for logs and metrics.
 
-These results use generated data, one judge and one agent model; the two-point accuracy difference
-alone does not establish an accuracy improvement. Fit thresholds to your own data.
-[Earlier measurements and design trade-offs →](docs/design.md)
+## FAQ
+
+**Does Loadout work without deepagents?**
+Yes. `langchain_loadout` (the core) has no framework or provider dependency:
+`SkillRouter(catalog, judge).decide(Turn(request, context))` returns what to load and what to suggest.
+
+**Do I need Jev?**
+No. Jev is the included adapter and what Loadout was measured with, but any `Judge` works: a self-hosted
+inference model behind your own adapter, deterministic rules, or another provider. See
+[Bring your own judge](#bring-your-own-judge).
+
+**What happens if the judge is slow or down?**
+The turn gets the full catalog, as if Loadout were not installed, and the trace records why.
+
+**What does the judge see?**
+The request and the recent conversation (the user's messages and the agent's replies, without tool
+output) are sent, capped at `request_chars` and `context_chars`. So are skill names, descriptions and the
+start of the candidates' instructions. Supply your own `context=` function to send less, or a
+self-hosted judge to keep everything in your network.
+
+**Does it keep state between turns?**
+No. Every turn is decided from scratch. No checkpointer or extra storage is required.
 
 ## Documentation
 
 | Read | Covers |
 |---|---|
-| [How it works](docs/design.md) | Selection flow, judge interface, settings and trade-offs |
-| [Development guide](docs/development.md) | Architecture, Python conventions and testing |
-| [Contributing](CONTRIBUTING.md) | Local setup, checks, issues and pull requests |
-| [Changelog](CHANGELOG.md) | Release history |
+| [How it works](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md) | Selection flow, judge interface, settings, measurements and known limits |
+| [Development guide](https://github.com/deyna256/langchain-loadout/blob/main/docs/development.md) | Architecture, conventions and testing |
+| [Contributing](https://github.com/deyna256/langchain-loadout/blob/main/CONTRIBUTING.md) | Local setup, checks, issues and pull requests |
+| [Changelog](https://github.com/deyna256/langchain-loadout/blob/main/CHANGELOG.md) | Release history |
+
+The public API may change in minor releases while the version is `0.x`.
+
+## Acknowledgements
+
+Loadout was inspired by [Jev](https://docs.typesafe.ai/introduction), TypeSafe AI's model for typed
+decisions, and its first round follows TypeSafe's
+[skill suggestion cookbook](https://docs.typesafe.ai/cookbooks/skill_suggestion). Loadout is an independent
+open-source project, not affiliated with or endorsed by TypeSafe AI.
 
 ## License
 
-[MIT](LICENSE) © 2026 Ivan Deyna
+[MIT](https://github.com/deyna256/langchain-loadout/blob/main/LICENSE) © 2026 Ivan Deyna
