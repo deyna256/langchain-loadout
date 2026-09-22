@@ -9,6 +9,8 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-22
+
 ### Changed
 
 - The turn's skill message is written into the conversation instead of being added to the model request
@@ -100,7 +102,8 @@ The first release.
 - A public API: everything listed in `langchain_loadout.__all__`, importable from the package root and
   pulling in neither a framework nor a provider SDK.
 
-[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/deyna256/langchain-loadout/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/deyna256/langchain-loadout/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/deyna256/langchain-loadout/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/deyna256/langchain-loadout/compare/v0.1.0...v0.1.1
