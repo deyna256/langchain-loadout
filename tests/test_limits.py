@@ -16,7 +16,7 @@ CATALOG = [
     for g in ("docs", "spend", "tax")
     for i in range(4)
 ]
-SMALL = Limits(max_tokens=3000, max_options=255, tokens_per_char=1.0)  # the whole catalog cannot fit one call
+SMALL = Limits(max_tokens=4200, max_options=255, tokens_per_char=1.0)  # the whole catalog cannot fit one call
 FIT = Settings(max_candidates=3, head_chars=50, request_chars=200, context_chars=100)  # verification fits SMALL
 
 
@@ -49,7 +49,8 @@ def estimate(fake: ScriptedJudge, state: Mapping[str, object], questions: Mappin
 
 
 def picks(fake: ScriptedJudge) -> list[Pick]:
-    return [q for _, qs in fake.calls for q in qs.values() if isinstance(q, Pick)]
+    """The ranking picks: over the catalog, its parts and their merge. Verification's pick is not one of them."""
+    return [q for _, qs in fake.calls for key, q in qs.items() if isinstance(q, Pick) and key == "skill"]
 
 
 def first_round(fake: ScriptedJudge) -> list[Pick]:

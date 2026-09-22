@@ -7,8 +7,10 @@ A turn goes through:
    (`judge.limits`), it is split into parts that do, keeping groups together; the parts are asked in
    parallel and their winners merged by a further pick, repeating until everything fits one call.
    A low "need" ends the decision here, with nothing loaded.
-2. Verification: does each candidate fit, judged from the head of its text. With `skip_verify_at` set
-   and ranking confident in its first candidate, this step is skipped.
+2. Verification, one call over the heads of the candidates' texts: which of them is the right one, and
+   for each on its own, does it do what the request asks. The pick settles which skill is loaded; `fits`
+   settles whether any is. With `skip_verify_at` set and ranking confident in its first candidate, this
+   step is skipped.
 3. Thresholds from `Settings`, applied by `decide_from_trace`.
 
 A turn is decided on its own. Nothing is carried over from the turn before it; why not is on `Turn`.
@@ -46,9 +48,14 @@ def decide_from_trace(s: Settings, trace: Trace) -> Decision:
     top = next(iter(trace.candidates), None)
     if s.skip_verify_at is not None and top and top[1] >= s.skip_verify_at:
         return Decision(load=(top[0],), trace=trace)  # ranking is sure; skip verification
-    by_fit = sorted(trace.fits, key=trace.fits.__getitem__, reverse=True)
-    load = tuple([n for n in by_fit if trace.fits[n] >= s.load_at][: s.max_load])
-    suggest = tuple(n for n in by_fit if n not in load and trace.fits[n] >= s.suggest_at)
+    # Verification's pick orders the candidates; a trace recorded without one falls back to the ranking.
+    # `fits` does not order them: independent yes/no answers tie on lookalikes.
+    ranked = [n for n, _ in trace.candidates]
+    order = sorted(trace.fits, key=lambda n: (-trace.picked.get(n, 0.0), ranked.index(n) if n in ranked else len(ranked)))
+    plausible = [n for n in order if trace.fits[n] >= s.suggest_at]
+    confident = bool(trace.fits) and max(trace.fits.values()) >= s.load_at
+    load = tuple(plausible[: s.max_load]) if confident else ()
+    suggest = tuple(n for n in plausible if n not in load)
     return Decision(load=load, suggest=suggest, trace=trace)
 
 
@@ -79,11 +86,15 @@ class SkillRouter:
             )
         self.limits: Limits = limits
         self.budget = self.limits.max_tokens * settings.budget_share / self.limits.tokens_per_char  # characters per call
-        check = settings.request_chars + settings.context_chars + settings.head_chars + SPARE_CHARS
+        # Verification carries every candidate's head twice: once in its own `fits` question, once as an option
+        # of the pick.
+        longest = max((len(s.description) for s in catalog), default=0)
+        per_candidate = 2 * settings.head_chars + longest + len(settings.fits_question)
+        check = settings.request_chars + settings.context_chars + settings.max_candidates * per_candidate + SPARE_CHARS
         if check > self.budget:
             raise JudgeMisconfigured(
                 f"settings do not fit the provider's limit: verification needs about {check} characters, "
-                f"the limit is about {int(self.budget)}; reduce head_chars, context_chars or request_chars"
+                f"the limit is about {int(self.budget)}; reduce max_candidates, head_chars, context_chars or request_chars"
             )
 
     async def decide(self, turn: Turn) -> Decision:
@@ -130,10 +141,16 @@ class SkillRouter:
         if s.skip_verify_at is not None and candidates and candidates[0][1] >= s.skip_verify_at:
             return decide_from_trace(s, replace(trace, stage="skip", seconds=elapsed()))
         heads = await self._read_heads(ranked_so_far)
-        questions = {f"fits:{n}": YesNo(s.fits_question.format(name=n, text=head)) for n, head in heads.items()}
+        questions: dict[str, Pick | YesNo] = {
+            f"fits:{n}": YesNo(s.fits_question.format(name=n, text=head)) for n, head in heads.items()
+        }
+        if len(heads) > 1:
+            options = {n: f"{self.skills[n].description}\n\n{head}" for n, head in heads.items()}
+            questions["pick"] = Pick(s.pick_question, options)
         answers = await self.judge.ask(base, questions) if questions else {}
         fits = {n: answers[f"fits:{n}"].yes for n in heads}
-        return decide_from_trace(s, replace(trace, fits=fits, stage="verify", seconds=elapsed()))
+        picked = {n: p for n, p in answers["pick"].probabilities.items() if n in heads} if "pick" in answers else {}
+        return decide_from_trace(s, replace(trace, fits=fits, picked=picked, stage="verify", seconds=elapsed()))
 
     async def search(self, query: str, limit: int = 5) -> list[Skill]:
         """Back the `find_skill` tool: the best skills for the model's own query, or nothing on failure."""

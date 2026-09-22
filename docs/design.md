@@ -60,14 +60,20 @@ user message
   │     (over the provider's limit → parts in parallel, then a merge)
   │     └─ `skip_verify_at` is set and the first candidate is above it → load without verifying
   │
-  └─ 3. Verification: "do these instructions do what the request asks?" against the head of each
-        candidate's text, each text carried in its own question → thresholds: load / suggest / nothing
+  └─ 3. Verification, one call over the heads of the candidates' texts:
+        "which of these is the right one?" — a pick with the texts side by side — settles which skill,
+        and "do these instructions do what the request asks?" for each on its own settles whether any
+        → thresholds: load the pick / suggest / nothing
 ```
 
 **Why it is shaped this way**, from the testbed measurements:
 
-- Verification earns its call: ranking alone puts the right skill first in 74.8% of requests, and
-  verification raises that to 84.5%.
+- Verification asks two different things. Ordered by their independent yes/no answers alone, lookalikes
+  tie (0.8 against 0.9, say) and the wrong one often comes first: over 263 conversation turns on the bank
+  testbed the right skill was first by `fits` in 67% of turns, against 92% by the ranking over
+  descriptions, and loading the two best side by side dropped the answer from 91% correct to 76%. So a
+  pick over the candidates' texts decides which skill is loaded, one by default, and `fits` only decides
+  whether any is — the split TypeSafe's skill-suggestion cookbook uses as well.
 - A candidate's text goes in its own question rather than in the shared state, because otherwise its
   score depends on its neighbours in the same call — a shift of up to 0.46, against no more than 0.05
   this way — and the size of a call stops growing with the number of candidates.
@@ -92,14 +98,15 @@ found = await router.search(query)  # for the find_skill tool
 
 `Settings` carries three kinds of knob. **How much:** `max_candidates`, `max_load`, `head_chars`,
 `request_chars`, `context_chars`, `budget_share`, `timeout`. **Thresholds:** `need_at`, `load_at`,
-`suggest_at` and `skip_verify_at`, which is off by default. **Both questions the judge is asked:**
-`need_question`, `rank_question` and `fits_question` — the defaults are written for a general
+`suggest_at` and `skip_verify_at`, which is off by default. **The questions the judge is asked:**
+`need_question`, `rank_question`, `pick_question` and `fits_question` — the defaults are written for a general
 assistant, and wording that names the product's own domain separates better. `Trace` carries the
 ranking probabilities, the answer to every question, where the decision ended, how long it took and
 what failed.
 
 Each threshold is compared against the trace field of the same name: `need_at` against `trace.need`,
-`load_at` and `suggest_at` against `trace.fits`.
+`load_at` against the best of `trace.fits`, `suggest_at` against each candidate's. Which candidate is
+loaded follows `trace.picked`, verification's pick; a trace recorded without one follows the ranking.
 
 ## Plugging in a different judge
 
@@ -140,17 +147,26 @@ a part is refused anyway, it is asked again in halves.
 
 `LoadoutSkillsMiddleware` takes the place of `SkillsMiddleware`, under the same name. Skills are still
 discovered by the ordinary middleware through `state["skills_metadata"]`; on a new user message Loadout
-decides, and the model sees a shortened list plus the text of the loaded skills. Only a copy of the
-request is shortened — the agent's state is not touched. On failure the request goes to the ordinary
-middleware with the full list. `find_skill(query)` covers the case where the model needs a skill that
+decides, and the model sees only the picked skills. The layout follows the provider's prompt cache, which
+matches a request from its start up to the first changed character: the system message gets a section
+that is the same on every call, and the turn's skills — the loaded one's instructions, the others by name
+and description — go in a message right after the user's request. What the turn picked changes only what
+follows the request, and the conversation before it stays cached. The message is added to a copy of the
+request, not to the agent's state, so nothing the user sees changes and nothing has to survive until the
+next turn. On failure the request goes to the ordinary middleware with the full list.
+
+The judge sees the turn's context as the product assembles it; the default, `recent_context`, is the
+last few things the user asked and the agent answered, without tool calls and their results, which would
+otherwise crowd the previous request out of the window. `find_skill(query)` covers the case where the model needs a skill that
 is not in the list. The optimisation applies when the agent is run asynchronously.
 
 ## Known limits
 
-- **The Loadout prompt is not cached.** The full catalog is identical in every message and a gateway
-  caches 94% of it; the Loadout prompt changes every turn and caches at 68%, which made a turn cost
-  $0.0049 against $0.0039. Keeping the selected skills at the end of the prompt, so the unchanging head
-  stays cacheable, should fix it.
+- **A turn's skills are not cached across turns.** They follow the request and are not kept in the
+  conversation, so the next turn reads its own skills, and the tail of the previous turn, uncached. With
+  the skills in the system message the whole conversation was read uncached on each turn's first call
+  instead; keeping them in the conversation would need the "already loaded" knowledge the next limit
+  explains the library does not rely on.
 - **Two seconds is out of reach on a large catalog.** On 236 skills the catalog splits into three
   parts, so a full pass costs about 58k tokens and about 3 s; only the cheap decisions land inside two
   seconds. The size estimate is part of the problem: 0.8 tokens per character is assumed against about

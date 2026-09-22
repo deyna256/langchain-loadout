@@ -13,8 +13,8 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
-from langchain_loadout import Answer, Limits, Pick, YesNo
-from langchain_loadout.langchain import LoadoutSkillsMiddleware
+from langchain_loadout import Answer, Limits, Pick, Settings, YesNo
+from langchain_loadout.langchain import LoadoutSkillsMiddleware, recent_context
 from langchain_loadout.testing import ScriptedJudge, yes
 
 SKILLS = {
@@ -80,13 +80,42 @@ def system_text(messages: list[Any]) -> str:
     return "\n".join(m.text for m in messages if isinstance(m, SystemMessage))
 
 
+def prompt_text(messages: list[Any]) -> str:
+    """Everything the model was sent, the system message and the conversation alike."""
+    return "\n".join(m.text for m in messages)
+
+
 async def test_confident_choice_shows_only_that_skill_and_its_text(backend):
 
     model = await run(backend, judge_choosing("visa-statement"), [AIMessage("done")])
-    prompt = system_text(model.seen[0])
+    prompt = prompt_text(model.seen[0])
 
     assert "Instruction text for visa-statement" in prompt
     assert "card-limits" not in prompt and "spending-by-category" not in prompt
+
+
+async def test_the_skill_follows_the_request_and_the_system_message_stays_the_same(backend):
+    # The provider's cache matches a request from its start: whatever the turn picks must come after the
+    # conversation so far, and the system message must not depend on the pick.
+    visa = await run(backend, judge_choosing("visa-statement"), [AIMessage("done")])
+    limits = await run(backend, judge_choosing("card-limits"), [AIMessage("done")])
+
+    assert system_text(visa.seen[0]) == system_text(limits.seen[0])
+    assert "Instruction text" not in system_text(visa.seen[0])
+    request, skill = visa.seen[0][-2:]
+    assert request.text == "I need a statement for the embassy"
+    assert "Relevant to the current request: visa-statement" in skill.text
+    assert "Instruction text for visa-statement" in skill.text
+
+
+async def test_the_skill_message_is_not_written_into_the_conversation(backend):
+    model = RecordingModel(messages=iter([AIMessage("done")]))
+    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"))
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+
+    result = await agent.ainvoke({"messages": [HumanMessage("I need a statement for the embassy")]})
+
+    assert [m.text for m in result["messages"]] == ["I need a statement for the embassy", "done"]
 
 
 async def test_failure_falls_back_to_the_usual_full_list(backend):
@@ -137,7 +166,9 @@ async def test_instruction_read_failure_restores_full_catalog(backend, monkeypat
             ]
         )
     )
-    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge, on_decision=fail_after_selection)
+    middleware = LoadoutSkillsMiddleware(
+        backend=backend, sources=["/skills/"], judge=judge, settings=Settings(max_load=2), on_decision=fail_after_selection
+    )
     agent = create_deep_agent(
         model=model, backend=backend, skills=["/skills/"], middleware=[middleware], system_prompt="Keep the original instructions."
     )
@@ -148,8 +179,8 @@ async def test_instruction_read_failure_restores_full_catalog(backend, monkeypat
         prompt = system_text(messages)
         assert all(name in prompt for name in SKILLS)
         assert "Keep the original instructions." in prompt
-        assert "Instruction text for" not in prompt  # discard even the first, successfully read skill
-        assert "Skills picked for the current request" not in prompt
+        assert "Instruction text for" not in prompt_text(messages)  # discard even the first, successfully read skill
+        assert "Relevant to the current request" not in prompt_text(messages)
     assert "using the full catalog" in caplog.text
 
 
@@ -208,7 +239,7 @@ async def test_model_io_error_is_not_retried_as_a_skill_fallback(backend):
     with pytest.raises(OSError, match="model unavailable"):
         await agent.ainvoke({"messages": [HumanMessage("I need a statement")]})
     assert len(model.seen) == 1
-    assert "Instruction text for visa-statement" in system_text(model.seen[0])
+    assert "Instruction text for visa-statement" in prompt_text(model.seen[0])
 
 
 async def test_decision_is_made_once_per_turn(backend):
@@ -219,7 +250,7 @@ async def test_decision_is_made_once_per_turn(backend):
 
     assert len(model.seen) == 2  # the model was called twice in the turn
     assert len(judge.calls) == 3  # the judge once per turn: cheap call, ranking, verification
-    assert "Instruction text for visa-statement" in system_text(model.seen[1])
+    assert "Instruction text for visa-statement" in prompt_text(model.seen[1])
 
 
 async def test_every_decision_is_reported_for_observability(backend):
@@ -269,7 +300,7 @@ async def test_catalog_updates_with_unchanged_skill_names(backend, tmp_path):
     for label in ("old", "new"):
         agent, model = catalog_agent(backend, middleware, tmp_path, label, "statement")
         result = await agent.ainvoke({"messages": [HumanMessage(label)]})
-        assert f"Instructions for {label}" in system_text(model.seen[0])
+        assert f"Instructions for {label}" in prompt_text(model.seen[0])
         search = next(m for m in result["messages"] if isinstance(m, ToolMessage))
         assert f"Description for {label}" in search.content
         assert f"/{label}/SKILL.md" in search.content
@@ -308,9 +339,22 @@ async def test_overlapping_runs_keep_their_own_catalog(backend, tmp_path, same_n
     async with asyncio.timeout(5):
         results = await asyncio.gather(invoke("A"), invoke("B"))
     for label, result in zip(("A", "B"), results, strict=True):
-        prompt = system_text(agents[label][1].seen[0])
+        prompt = prompt_text(agents[label][1].seen[0])
         assert f"Instructions for {label}" in prompt
         assert f"Instructions for {'B' if label == 'A' else 'A'}" not in prompt
         search = next(m for m in result["messages"] if isinstance(m, ToolMessage))
         assert f"Description for {label}" in search.content
         assert f"/{label}/SKILL.md" in search.content
+
+
+def test_context_is_the_conversation_without_tool_traffic():
+    messages = [
+        HumanMessage("How much did I spend in June?"),
+        AIMessage("", tool_calls=[{"name": "find_operations", "args": {}, "id": "call-1"}]),
+        ToolMessage('{"operations": []}' * 50, tool_call_id="call-1"),
+        AIMessage("You spent 41,000 roubles in June."),
+    ]
+
+    context = recent_context(messages)
+
+    assert context == "human: How much did I spend in June?\nai: You spent 41,000 roubles in June."

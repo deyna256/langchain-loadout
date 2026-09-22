@@ -1,9 +1,17 @@
 """Loadout for deepagents: a wrapper around the ordinary skills middleware (`SkillsMiddleware`).
 
 Skills are still discovered by the ordinary middleware, through `state["skills_metadata"]`. On each new
-user message Loadout decides which of them are needed, and the model sees only those; the text of the
-loaded ones goes straight into the system message. On any failure the request passes to the ordinary
-middleware untouched, so the model sees the full list exactly as it would without Loadout.
+user message Loadout decides which of them are needed, and the model sees only those. On any failure the
+request passes to the ordinary middleware untouched, so the model sees the full list exactly as it would
+without Loadout.
+
+What the model sees is laid out for the provider's prompt cache, which matches a request from its start
+up to the first changed character. The system message gets a section that is the same on every call, and
+the turn's skills go in a message right after the user's request. Put in the system message, they changed
+the head of every turn's first request, and the whole conversation after it was read again uncached (37%
+of that call's input came from the cache on the bank testbed, against 94% with the full list). Here only
+what follows the request changes. The message is added to the model request, not to the agent's state:
+nothing the user sees is changed, and nothing has to survive until the next turn.
 
 Selection, instruction reads and `find_skill` use the current execution's catalog. No catalog or router
 is cached on the middleware instance, which may be shared by concurrent executions.
@@ -22,7 +30,7 @@ from deepagents.middleware._utils import append_to_system_message
 from deepagents.middleware.skills import SkillMetadata, SkillsMiddleware, SkillsState
 from langchain.agents.middleware.types import ModelRequest, ModelResponse, PrivateStateAttr
 from langchain.tools import ToolRuntime
-from langchain_core.messages import AnyMessage, HumanMessage
+from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langchain_core.tools import BaseTool, StructuredTool
 
 from langchain_loadout.core.judge import Judge
@@ -33,14 +41,22 @@ logger = logging.getLogger(__name__)
 
 PROMPT = """## Skills System
 
-Skills picked for the current request (only these are listed; the full catalog is larger):
+Skills are step-by-step instructions for recurring tasks. The catalog is large, so for each request the
+skills picked for it are attached right after the request, with the instructions of the one that fits.
+If none of them fits the task, call `find_skill` with a short description of what you need."""
 
-{skills_list}
+# The first line is TypeSafe's skill-suggestion cookbook's: a suggestion that may be ignored, because
+# pushing harder wins compliance on wrong suggestions too, and a wrong skill is worse than none.
+LOADED = """Relevant to the current request: {name}. Ignore this if it does not fit what the user actually asked for.
+Its instructions follow; there is no need to read its SKILL.md.
 
-{loaded}If none of the listed skills fits the task, call `find_skill` with a short description of what you need.
-To use a listed skill that is not loaded below, read its SKILL.md with `read_file` (pass `limit=1000`)."""
+<skill name="{name}">
+{text}
+</skill>"""
 
-LOADED = "**Loaded skill instructions — follow them:**\n\n{texts}\n\n"
+LISTED = """Other skills that may fit (read one's SKILL.md with `read_file`, `limit=1000`, if you need it):
+
+{skills_list}"""
 
 
 class LoadoutState(SkillsState):
@@ -53,9 +69,12 @@ class LoadoutState(SkillsState):
 
 
 def recent_context(messages: Sequence[AnyMessage], limit: int = 6) -> str:
-    """The default context: the messages leading up to the current user message."""
-    lines = [f"{m.type}: {str(m.content)[:500]}" for m in messages[-limit:] if str(m.content).strip()]
-    return "\n".join(lines)
+    """The default context: the conversation leading up to the current user message — what the user asked
+    and what the agent answered. Tool calls and their results are left out: after a turn with tools the last
+    few messages are all tool output, and the previous request would drop out of the window."""
+    said = [m for m in messages if isinstance(m, HumanMessage) or (isinstance(m, AIMessage) and not m.tool_calls)]
+    lines = [f"{m.type}: {m.text[:500]}" for m in said if m.text.strip()]
+    return "\n".join(lines[-limit:])
 
 
 class LoadoutSkillsMiddleware(SkillsMiddleware):
@@ -117,20 +136,24 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         if "loadout_turn" not in state or state.get("loadout_failed"):
             return await super().awrap_model_call(request, handler)  # the ordinary path: the full list
         loaded = state.get("loadout_loaded", [])
-        picked = set(loaded) | set(state.get("loadout_suggest", []))
-        listed: list[SkillMetadata] = [m for m in state.get("skills_metadata", []) if m["name"] in picked]
-        paths = {m["name"]: m["path"] for m in listed}
+        picked = [*loaded, *state.get("loadout_suggest", [])]
+        by_name = {m["name"]: m for m in state.get("skills_metadata", [])}
         try:
-            texts = [await self._text(paths[name]) for name in loaded if name in paths]
+            texts = {name: await self._text(by_name[name]["path"]) for name in loaded if name in by_name}
         except (OSError, UnicodeError) as err:
             # Keep the model call outside this boundary: its errors must not trigger a second call.
             logger.warning("Skill instructions could not be read; using the full catalog (%s)", type(err).__name__)
             return await super().awrap_model_call(request, handler)
-        section = PROMPT.format(
-            skills_list=self._format_skills_list(listed) if listed else "(nothing picked for this request)",
-            loaded=LOADED.format(texts="\n\n---\n\n".join(texts)) if texts else "",
-        )
-        return await handler(request.override(system_message=append_to_system_message(request.system_message, section)))
+        system = append_to_system_message(request.system_message, PROMPT)
+        parts = [LOADED.format(name=name, text=text) for name, text in texts.items()]
+        if listed := [by_name[n] for n in picked if n in by_name and n not in texts]:
+            parts.append(LISTED.format(skills_list=self._format_skills_list(listed)))
+        if not parts:
+            return await handler(request.override(system_message=system))
+        messages = list(request.messages)
+        last = next((i for i in range(len(messages) - 1, -1, -1) if isinstance(messages[i], HumanMessage)), len(messages) - 1)
+        messages.insert(last + 1, HumanMessage("\n\n".join(parts)))
+        return await handler(request.override(system_message=system, messages=messages))
 
     # --- catalog and search -------------------------------------------------------------------------
 
@@ -166,7 +189,7 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
             return "\n".join(f"- **{s.name}**: {s.description}\n  -> Read `{paths[s.name]}` for full instructions" for s in found)
 
         description = (f"{catalog_hint} " if catalog_hint else "") + (
-            "Find skills (step-by-step instructions) for a task that the skills listed in the system prompt don't cover. "
+            "Find skills (step-by-step instructions) for a task that the skills picked for the request don't cover. "
             "Pass a short description of the task; returns the best matching skills with paths to read."
         )
         return StructuredTool.from_function(coroutine=find_skill, name="find_skill", description=description)

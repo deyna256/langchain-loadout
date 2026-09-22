@@ -33,9 +33,12 @@ class Settings:
     """Everything a product may want to tune."""
 
     max_candidates: int = 6  # how many candidates ranking passes to verification
-    max_load: int = 2  # how many skills may be loaded in one turn
-    load_at: float = 0.8  # "fits" at or above this: put the instructions in the request
-    suggest_at: float = 0.4  # "fits" at or above this: offer the skill as a candidate
+    # One skill by default. Two lookalikes loaded side by side argue with each other: on the bank testbed a turn
+    # with the right skill alone was answered correctly in 91% of cases, with the right skill and a neighbour
+    # in 76% — no better than an agent with no skills at all.
+    max_load: int = 1  # how many skills may be loaded in one turn
+    load_at: float = 0.8  # the best "fits" at or above this: load the candidate verification picks
+    suggest_at: float = 0.4  # "fits" at or above this: the candidate may be loaded, or else is offered
     need_at: float = 0.3  # "a skill is needed at all" below this: load nothing
     skip_verify_at: float | None = None  # ranking this sure of its first candidate: load without verifying
     head_chars: int = 1500  # how much of a skill's text verification sees
@@ -55,6 +58,14 @@ class Settings:
     fits_question: str = (
         'Do these skill instructions do what the user asks for in `request`?\n\n<skill name="{name}">\n{text}\n</skill>'
     )
+    # Verification picks among the candidates with their texts side by side; `fits` then only settles whether
+    # any of them is right. Ordered by `fits` alone, lookalikes tie (0.8 against 0.9) and the right skill came
+    # first in 67% of turns, against 92% for the ranking over descriptions. TypeSafe's skill-suggestion
+    # cookbook asks the same two questions: the pick settles which, `fits` settles whether.
+    pick_question: str = (
+        "Exactly one of these skills is the right one to load for the user's request. Which one? "
+        "Read what each actually does, not just its name."
+    )
 
 
 @dataclass(frozen=True)
@@ -64,6 +75,7 @@ class Trace:
     candidates: tuple[tuple[str, float], ...] = ()  # the best of the ranking, with probabilities, best first
     need: float | None = None
     fits: Mapping[str, float] = field(default_factory=dict)  # per candidate: does it do what the request asks
+    picked: Mapping[str, float] = field(default_factory=dict)  # verification's pick among the candidates
     failure: str | None = None
     seconds: float = 0.0
     parts: int = 1  # how many parts the catalog was split into for ranking

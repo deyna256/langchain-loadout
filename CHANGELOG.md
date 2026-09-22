@@ -9,7 +9,27 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Added
+
+- `Settings.pick_question` and `Trace.picked`: verification now also asks which candidate is the right
+  one, with the candidates' texts side by side, and records the answer.
+
 ### Changed
+
+- Verification decides which skill to load by its pick among the candidates; the per-candidate "fits"
+  answers only decide whether any is loaded (`load_at` against the best of them) and which are suggested
+  (`suggest_at`). Ordered by "fits" alone, lookalike skills tied and the wrong one was often loaded. A
+  trace recorded without a pick is ordered by the ranking.
+- `Settings.max_load` defaults to 1: two lookalike skills loaded together gave worse answers than one.
+- The loaded skill and the suggested ones now go in a message right after the user's request instead of
+  the system message, which stays the same on every call. The provider's prompt cache keeps the
+  conversation before the request; with the skills in the system message it was read again uncached on
+  every turn. The message says the skill may be ignored if it does not fit, following TypeSafe's
+  skill-suggestion cookbook.
+- `recent_context`, the default context for the judge, now carries what the user asked and the agent
+  answered, without tool calls and their results, which pushed the previous request out of the window.
+- Settings that cannot fit verification into one call are rejected at construction with the pick's size
+  counted in: every candidate's text now goes out twice.
 
 - Clarified README positioning: a deepagents extension built on LangChain middleware, with an
   independently usable routing core.
