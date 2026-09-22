@@ -9,6 +9,23 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Added
+
+- `Settings.max_suggest`, 3 by default: at most this many candidates are offered for the model to choose
+  from. Offered four on average, the model answered worse than when offered two.
+
+### Changed
+
+- Loading is decided by how sure verification is of its pick: `load_at` is compared against the pick and
+  now defaults to 0.9. The per-candidate "fits" answers only admit candidates (`suggest_at`, now 0.2); a
+  trace without a pick uses the fit of its candidate instead. On the bank testbed a pick this sure was
+  right in 90% of requests, and wrong loads fell from 13% (0.1.0) to 6%; below it, the model gets a short
+  list. A wrong skill loaded costs more than none: 71% of such turns were answered correctly, against 84%
+  with nothing loaded.
+- `Settings.skip_verify_at` defaults to 0.9: a ranking this sure of its first candidate is loaded without
+  the second call, which spared it in 44% of requests with the same share of right loads.
+- When verification fails, up to `max_suggest` ranked candidates are offered, instead of a fixed three.
+
 ## [0.2.0] - 2026-09-22
 
 ### Added

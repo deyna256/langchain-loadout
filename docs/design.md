@@ -58,12 +58,13 @@ user message
   │
   ├─ 2. Ranking over the catalog: pick by name and description → the best candidates with probabilities
   │     (over the provider's limit → parts in parallel, then a merge)
-  │     └─ `skip_verify_at` is set and the first candidate is above it → load without verifying
+  │     └─ the first candidate at or above `skip_verify_at` (0.9) → load it without verifying
   │
   └─ 3. Verification, one call over the heads of the candidates' texts:
         "which of these is the right one?" — a pick with the texts side by side — settles which skill,
-        and "do these instructions do what the request asks?" for each on its own settles whether any
-        → thresholds: load the pick / suggest / nothing
+        and "do these instructions do what the request asks?" for each on its own admits a candidate at all
+        → the pick, if verification is sure of it (`load_at`), is loaded; otherwise up to `max_suggest`
+          admitted candidates are offered; none admitted → nothing
 ```
 
 **Why it is shaped this way**, from the testbed measurements:
@@ -73,7 +74,14 @@ user message
   testbed the right skill was first by `fits` in 67% of turns, against 92% by the ranking over
   descriptions, and loading the right skill together with a neighbour dropped the answer from 91% correct
   to 76%. So a pick over the candidates' texts decides which skill is loaded, one by default, and `fits`
-  only decides whether any is — the split TypeSafe's skill-suggestion cookbook uses as well.
+  only admits candidates — the split TypeSafe's skill-suggestion cookbook uses as well.
+- How sure the pick is decides between loading and offering. At 0.9 and above the pick was right in 90% of
+  requests, and a wrong skill loaded costs more than none: turns with a wrong skill were answered correctly
+  in 71% of cases, with nothing loaded in 84%, with the right skill in 89%. Below that the model gets a
+  short list to choose from. Short, because offered four candidates the model read the right one as often
+  as from two, but answered worse: 82% against 92%.
+- A ranking sure of its first candidate is rarely overturned by verification, so at 0.9 the second call is
+  skipped: that spared it in 44% of requests with the same share of right loads.
 - A candidate's text goes in its own question rather than in the shared state, because otherwise its
   score depends on its neighbours in the same call — a shift of up to 0.46, against no more than 0.05
   this way — and the size of a call stops growing with the number of candidates.
@@ -96,17 +104,18 @@ decision = await router.decide(Turn(request, context))  # load / suggest + trace
 found = await router.search(query)  # for the find_skill tool
 ```
 
-`Settings` carries three kinds of knob. **How much:** `max_candidates`, `max_load`, `head_chars`,
-`request_chars`, `context_chars`, `budget_share`, `timeout`. **Thresholds:** `need_at`, `load_at`,
-`suggest_at` and `skip_verify_at`, which is off by default. **The questions the judge is asked:**
+`Settings` carries three kinds of knob. **How much:** `max_candidates`, `max_load`, `max_suggest`,
+`head_chars`, `request_chars`, `context_chars`, `budget_share`, `timeout`. **Thresholds:** `need_at`,
+`load_at`, `suggest_at` and `skip_verify_at`, which `None` turns off. **The questions the judge is asked:**
 `need_question`, `rank_question`, `pick_question` and `fits_question` — the defaults are written for a general
 assistant, and wording that names the product's own domain separates better. `Trace` carries the
 ranking probabilities, the answer to every question, where the decision ended, how long it took and
 what failed.
 
 Each threshold is compared against the trace field of the same name: `need_at` against `trace.need`,
-`load_at` against the best of `trace.fits`, `suggest_at` against each candidate's. Which candidate is
-loaded follows `trace.picked`, verification's pick; a trace recorded without one follows the ranking.
+`load_at` against verification's pick in `trace.picked`, `suggest_at` against each candidate's
+`trace.fits`, `skip_verify_at` against the first of `trace.candidates`. Candidates are ordered by the pick;
+a trace recorded without one follows the ranking, and its fit stands in for the pick.
 
 ## Plugging in a different judge
 

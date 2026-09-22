@@ -30,7 +30,8 @@ def judge(best: str, limits: Limits, fail_chunk_with: str | None = None) -> Scri
                 if fail_chunk_with in q.options and len(q.options) > 2:
                     raise RuntimeError("request too large")
                 names = sorted(q.options, key=lambda n: (n != best, n))
-                out[key] = Answer({n: 1 / (i + 2) for i, n in enumerate(names)})
+                sure = key == "pick"  # verification is sure of `best`; ranking only prefers it
+                out[key] = Answer({n: (0.95 if i == 0 else 0.01) if sure else 1 / (i + 2) for i, n in enumerate(names)})
             elif key == "need":
                 out[key] = yes(0.9)
             else:

@@ -37,10 +37,18 @@ class Settings:
     # with the right skill alone was answered correctly in 91% of cases, with the right skill and a neighbour
     # in 76% — no better than an agent with no skills at all.
     max_load: int = 1  # how many skills may be loaded in one turn
-    load_at: float = 0.8  # the best "fits" at or above this: load the candidate verification picks
-    suggest_at: float = 0.4  # "fits" at or above this: the candidate may be loaded, or else is offered
+    # A short list. On the testbed the model read the right skill from four offered (0.2.0) as often as from
+    # two (0.1.0), but answered worse: 82% against 92% of turns where the right skill was only offered.
+    max_suggest: int = 3  # how many candidates may be offered for the model to choose from
+    # Loading is decided by how sure verification is of its pick. At 0.9 and above the pick was right in 90%
+    # of requests on the testbed, and a wrong skill loaded costs more than none: 71% of such turns were
+    # answered correctly, against 84% with nothing loaded and 89% with the right skill.
+    load_at: float = 0.9  # verification this sure of its pick (of the fit, with one candidate): load it
+    suggest_at: float = 0.2  # "fits" at or above this: the candidate may be loaded or offered
     need_at: float = 0.3  # "a skill is needed at all" below this: load nothing
-    skip_verify_at: float | None = None  # ranking this sure of its first candidate: load without verifying
+    # Ranking this sure is rarely overturned by verification: skipping it at 0.9 spared the second call in 44%
+    # of requests on the testbed, with right loads at 45% either way and wrong ones at 5.7% against 5.1%.
+    skip_verify_at: float | None = 0.9  # ranking this sure of its first candidate: load without verifying
     head_chars: int = 1500  # how much of a skill's text verification sees
     timeout: float = 2.0  # seconds for the whole decision
     request_chars: int = 2000  # how much of the request the judge sees (a user may paste a whole statement)

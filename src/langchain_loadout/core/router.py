@@ -8,9 +8,9 @@ A turn goes through:
    parallel and their winners merged by a further pick, repeating until everything fits one call.
    A low "need" ends the decision here, with nothing loaded.
 2. Verification, one call over the heads of the candidates' texts: which of them is the right one, and
-   for each on its own, does it do what the request asks. The pick settles which skill is loaded; `fits`
-   settles whether any is. With `skip_verify_at` set and ranking confident in its first candidate, this
-   step is skipped.
+   for each on its own, does it do what the request asks. The pick settles which skill, and how sure it is
+   settles whether it is loaded or only offered; `fits` admits a candidate at all. With ranking confident in
+   its first candidate (`skip_verify_at`), this step is skipped.
 3. Thresholds from `Settings`, applied by `decide_from_trace`.
 
 A turn is decided on its own. Nothing is carried over from the turn before it; why not is on `Turn`.
@@ -34,7 +34,6 @@ from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Tr
 # not depend on its neighbours in the same call (measured: a shift of up to 0.46 with neighbours in the
 # state, no more than 0.05 this way), and a call costs the state plus one longest question rather than
 # every candidate at once.
-FALLBACK_SUGGEST = 3  # how many ranked candidates to suggest when verification fails
 SPARE_CHARS = 1200  # room for the question texts themselves when checking whether settings fit
 
 Ranking = list[tuple[str, float]]
@@ -53,9 +52,11 @@ def decide_from_trace(s: Settings, trace: Trace) -> Decision:
     ranked = [n for n, _ in trace.candidates]
     order = sorted(trace.fits, key=lambda n: (-trace.picked.get(n, 0.0), ranked.index(n) if n in ranked else len(ranked)))
     plausible = [n for n in order if trace.fits[n] >= s.suggest_at]
-    confident = bool(trace.fits) and max(trace.fits.values()) >= s.load_at
-    load = tuple(plausible[: s.max_load]) if confident else ()
-    suggest = tuple(n for n in plausible if n not in load)
+    # How sure verification is of a candidate decides loading; `fits` only admits it. With a single candidate
+    # there is no pick, and its fit stands in.
+    sure = trace.picked if trace.picked else trace.fits
+    load = tuple(n for n in plausible[: s.max_load] if sure.get(n, 0.0) >= s.load_at)
+    suggest = tuple(n for n in plausible if n not in load)[: s.max_suggest]
     return Decision(load=load, suggest=suggest, trace=trace)
 
 
@@ -112,7 +113,7 @@ class SkillRouter:
         except Exception as err:
             failure = "timeout" if isinstance(err, TimeoutError) else f"{type(err).__name__}: {err}"
             trace = Trace(failure=failure, seconds=time.monotonic() - started)
-            return Decision(suggest=tuple(ranked_so_far[:FALLBACK_SUGGEST]), trace=trace)
+            return Decision(suggest=tuple(ranked_so_far[: self.settings.max_suggest]), trace=trace)
 
     async def _decide(self, turn: Turn, started: float, ranked_so_far: list[str]) -> Decision:
         s = self.settings

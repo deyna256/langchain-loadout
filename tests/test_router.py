@@ -19,13 +19,17 @@ def scripted(
     choose: Mapping[str, float] | None = None,
 ) -> ScriptedJudge:
     """A scripted judge: ranking probabilities, the need answer, a fit per candidate and, when given,
-    verification's pick among the candidates (otherwise it repeats the ranking)."""
+    verification's pick among the candidates (otherwise a sure pick of the ranking's best candidate)."""
 
     def answer(state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> Mapping[str, Answer]:
         out: dict[str, Answer] = {}
         for key, q in questions.items():
             if isinstance(q, Pick):
-                probabilities = choose if key == "pick" and choose is not None else pick
+                if key == "pick":
+                    best = max(q.options, key=lambda o: pick.get(o, 0.0))
+                    probabilities = choose if choose is not None else {best: 0.95}
+                else:
+                    probabilities = pick
                 out[key] = Answer({o: probabilities.get(o, 0.0) for o in q.options})
             elif key == "need":
                 out[key] = yes(need)
@@ -67,13 +71,14 @@ async def test_confident_fit_is_loaded_doubtful_is_suggested():
 async def test_verification_picks_which_skill_and_fits_only_decides_whether():
     # Lookalikes both "fit"; the pick over their texts side by side is what tells them apart.
     fits = {"visa-statement": 0.85, "spending-by-category": 0.9}
-    judge = scripted({"visa-statement": 0.6, "spending-by-category": 0.3}, fits=fits, choose={"visa-statement": 0.8})
+    choose = {"visa-statement": 0.92, "spending-by-category": 0.08}
+    judge = scripted({"visa-statement": 0.6, "spending-by-category": 0.3}, fits=fits, choose=choose)
 
     d = await SkillRouter(CATALOG, judge).decide(Turn("I need a statement for the embassy"))
 
     assert d.load == ("visa-statement",)
     assert d.suggest == ("spending-by-category",)
-    assert d.trace.picked["visa-statement"] == 0.8
+    assert d.trace.picked["visa-statement"] == 0.92
 
 
 async def test_verification_reads_the_candidates_texts_in_its_pick():
@@ -86,31 +91,46 @@ async def test_verification_reads_the_candidates_texts_in_its_pick():
     assert "Instructions for visa-statement." in verify[1]["pick"].options["visa-statement"]
 
 
-async def test_nothing_is_loaded_when_no_candidate_fits_confidently():
-    fits = {"visa-statement": 0.6, "spending-by-category": 0.3}
-    judge = scripted({"visa-statement": 0.6, "spending-by-category": 0.3}, fits=fits, choose={"visa-statement": 0.9})
+async def test_an_unsure_pick_is_offered_rather_than_loaded():
+    # Both fit well; verification cannot tell them apart, so the model is given the choice.
+    fits = {"visa-statement": 0.95, "spending-by-category": 0.3}
+    choose = {"visa-statement": 0.6, "spending-by-category": 0.4}
+    judge = scripted({"visa-statement": 0.6, "spending-by-category": 0.3}, fits=fits, choose=choose)
 
     d = await SkillRouter(CATALOG, judge, Settings(load_at=0.8, suggest_at=0.4)).decide(Turn("something vague"))
 
     assert d.load == ()
-    assert d.suggest == ("visa-statement",)
+    assert d.suggest == ("visa-statement",)  # the other one does not fit enough to be offered
+
+
+def test_no_more_than_max_suggest_are_offered():
+    trace = Trace(
+        need=0.9,
+        candidates=tuple((s.name, 0.2) for s in CATALOG),
+        fits={s.name: 0.8 for s in CATALOG},
+        picked={s.name: 0.2 for s in CATALOG},
+    )
+
+    assert decide_from_trace(Settings(max_suggest=2), trace).suggest == ("visa-statement", "spending-by-category")
 
 
 def test_a_trace_without_a_pick_is_ordered_by_the_ranking():
     trace = Trace(
         need=0.9,
         candidates=(("visa-statement", 0.7), ("spending-by-category", 0.2)),
-        fits={"visa-statement": 0.85, "spending-by-category": 0.95},
+        fits={"visa-statement": 0.92, "spending-by-category": 0.95},
     )
 
-    assert decide_from_trace(Settings(), trace).load == ("visa-statement",)
+    assert decide_from_trace(Settings(), trace).load == ("visa-statement",)  # its fit stands in for the pick
 
 
 async def test_no_more_than_max_load_the_rest_become_suggestions():
     fits = {"visa-statement": 0.95, "spending-by-category": 0.9, "subscriptions": 0.85}
-    judge = scripted(dict.fromkeys(fits, 0.3), fits=fits)
+    judge = scripted(
+        dict.fromkeys(fits, 0.3), fits=fits, choose={"visa-statement": 0.34, "spending-by-category": 0.33, "subscriptions": 0.33}
+    )
 
-    d = await SkillRouter(CATALOG, judge, Settings(max_load=2)).decide(Turn("all of it at once"))
+    d = await SkillRouter(CATALOG, judge, Settings(max_load=2, load_at=0.3)).decide(Turn("all of it at once"))
 
     assert d.load == ("visa-statement", "spending-by-category")
     assert d.suggest == ("subscriptions",)
@@ -141,7 +161,7 @@ async def test_verification_sees_the_head_of_the_skill_text():
     catalog = [skill("visa-statement", text="x" * 5000)]
     judge = scripted({"visa-statement": 1.0}, fits={"visa-statement": 0.9})
 
-    await SkillRouter(catalog, judge, Settings(head_chars=100)).decide(Turn("visa"))
+    await SkillRouter(catalog, judge, Settings(head_chars=100, skip_verify_at=None)).decide(Turn("visa"))
     question = judge.calls[2][1]["fits:visa-statement"].instructions
 
     assert "x" * 100 in question and "x" * 101 not in question
@@ -263,7 +283,7 @@ async def test_a_confident_ranking_skips_verification_when_the_product_allows_it
     ("best", "settings"),
     [
         pytest.param(0.6, Settings(skip_verify_at=0.8), id="ranking is not confident enough"),
-        pytest.param(0.99, Settings(), id="the product set no threshold"),
+        pytest.param(0.99, Settings(skip_verify_at=None), id="the product turned skipping off"),
     ],
 )
 async def test_verification_runs_otherwise(best, settings):
@@ -277,7 +297,7 @@ async def test_verification_runs_otherwise(best, settings):
 def test_thresholds_can_be_refitted_on_saved_traces():
     trace = Trace(candidates=(("visa-statement", 0.9), ("dispute", 0.05)), need=0.9, fits={"visa-statement": 0.3})
 
-    assert decide_from_trace(Settings(), trace).load == ()  # verification says no
+    assert decide_from_trace(Settings(skip_verify_at=None), trace).load == ()  # verification says no
     assert decide_from_trace(Settings(skip_verify_at=0.8), trace).load == ("visa-statement",)  # the threshold says yes
 
 
@@ -287,7 +307,7 @@ async def test_both_questions_can_be_written_for_the_product_domain():
         rank_question="Which bank skill fits best?",
         fits_question="Does {name} do this? {text}",
     )
-    judge = scripted({"visa-statement": 0.9}, fits={"visa-statement": 0.9})
+    judge = scripted({"visa-statement": 0.6}, fits={"visa-statement": 0.9})
 
     await SkillRouter(CATALOG, judge, settings).decide(Turn("a statement"))
     need, ranking, verify = judge.calls

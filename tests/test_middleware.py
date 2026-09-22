@@ -167,7 +167,11 @@ async def test_instruction_read_failure_restores_full_catalog(backend, monkeypat
         )
     )
     middleware = LoadoutSkillsMiddleware(
-        backend=backend, sources=["/skills/"], judge=judge, settings=Settings(max_load=2), on_decision=fail_after_selection
+        backend=backend,
+        sources=["/skills/"],
+        judge=judge,
+        settings=Settings(max_load=2, load_at=0.3),
+        on_decision=fail_after_selection,
     )
     agent = create_deep_agent(
         model=model, backend=backend, skills=["/skills/"], middleware=[middleware], system_prompt="Keep the original instructions."
@@ -249,7 +253,7 @@ async def test_decision_is_made_once_per_turn(backend):
     model = await run(backend, judge, [ls, AIMessage("done")])
 
     assert len(model.seen) == 2  # the model was called twice in the turn
-    assert len(judge.calls) == 3  # the judge once per turn: cheap call, ranking, verification
+    assert len(judge.calls) == 2  # the judge once per turn: cheap call and ranking, sure enough to skip verification
     assert "Instruction text for visa-statement" in prompt_text(model.seen[1])
 
 
