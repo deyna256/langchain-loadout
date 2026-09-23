@@ -13,6 +13,8 @@ Add the entry for a change in the same commit as the change itself.
 
 - Keep Jev's answer when the `on_usage` callback raises an exception. Log a warning with the exception
   type without exposing the callback's error text.
+- Route messages with image or file attachments using their text, so attachment data does not crowd
+  the user's request out of the judge's input.
 
 ## [0.3.0] - 2026-09-23
 
