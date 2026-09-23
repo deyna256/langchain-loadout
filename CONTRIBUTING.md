@@ -1,4 +1,4 @@
-# Contributing to Loadout
+# Contributing to Skill Router
 
 Use plain English in issues, commits, documentation and code comments. Follow the
 [development guide](docs/development.md) for code and tests, [design](docs/design.md) for how the
@@ -12,7 +12,7 @@ that describes the problem or intended change.
 Use the [issue template](.github/ISSUE_TEMPLATE.md), which has these sections:
 
 - **Problem:** explain what happens today and what is missing or wrong. For a bug, include reproduction
-  steps, expected and actual behaviour, and the versions of Python, `langchain-loadout` and the judge
+  steps, expected and actual behaviour, and the versions of Python, `langchain-skill-router` and the judge
   adapter in use.
 - **Why it matters:** describe the effect on users or development. Explain why the work is useful
   without repeating the problem.
@@ -95,7 +95,7 @@ The [CI workflow](.github/workflows/ci.yml) runs `just lint` and `just type` onc
 every supported Python version, for pull requests to `main` and pushes to `main`. It sets `UV_LOCKED`,
 so a stale `uv.lock` fails the build. `just format` changes files and is never run in CI.
 
-Tests must not call a provider. The library has no live tests: `langchain_loadout.testing` provides a
+Tests must not call a provider. The library has no live tests: `langchain_skill_router.testing` provides a
 scripted judge for that, and the checks that do need a real provider — `check_judge` against an adapter,
 and measurements against real models — belong to the bank testbed, which lives in its own repository.
 

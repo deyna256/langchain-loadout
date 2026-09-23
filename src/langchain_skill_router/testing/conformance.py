@@ -2,7 +2,7 @@
 
 An adapter author runs this against their provider:
 
-    from langchain_loadout.testing import check_judge
+    from langchain_skill_router.testing import check_judge
 
     async def test_my_adapter():
         await check_judge(MyJudge())
@@ -12,7 +12,7 @@ It makes one real call, so it costs whatever the provider charges for one call.
 
 from typing import NoReturn
 
-from langchain_loadout.core.judge import Judge, Limits, Pick, YesNo
+from langchain_skill_router.core.judge import Judge, Limits, Pick, YesNo
 
 STATE = {"request": "Show me what I spent last month, broken down by category."}
 

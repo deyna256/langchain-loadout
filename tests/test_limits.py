@@ -5,8 +5,8 @@ from collections.abc import Mapping
 import pytest
 from conftest import skill
 
-from langchain_loadout import Answer, JudgeMisconfigured, Limits, Pick, Settings, SkillRouter, Turn, YesNo
-from langchain_loadout.testing import ScriptedJudge, yes
+from langchain_skill_router import Answer, JudgeMisconfigured, Limits, Pick, Settings, SkillRouter, Turn, YesNo
+from langchain_skill_router.testing import ScriptedJudge, yes
 
 TEXT = "Instructions."
 

@@ -1,6 +1,6 @@
 # Development guide
 
-These are Loadout's coding rules. What the product does is in the [README](../README.md) and
+These are Skill Router's coding rules. What the product does is in the [README](../README.md) and
 [design](design.md); commands are in the [Justfile](../Justfile). LLM instructions should link here
 instead of copying these rules.
 
@@ -23,7 +23,7 @@ interface; the interface does not follow an adapter.
 
 ## Public API
 
-`langchain_loadout.__all__` is the public API. Everything else is an implementation detail and may
+`langchain_skill_router.__all__` is the public API. Everything else is an implementation detail and may
 change without notice. Adding a name to `__all__` is a commitment; removing one needs a deprecation
 release after 1.0.
 
@@ -33,7 +33,7 @@ dependency never becomes mandatory through a re-export.
 
 ## Imports
 
-Use absolute imports (`from langchain_loadout.core.types import Settings`), never relative ones. Import
+Use absolute imports (`from langchain_skill_router.core.types import Settings`), never relative ones. Import
 an optional dependency inside the module that needs it, and raise an error that names the extra to
 install when it is missing.
 
@@ -85,8 +85,8 @@ rejects are misconfiguration. A rejected request, including one that is too larg
 answers that by splitting the catalog and asking again, so classifying it as permanent would break a
 path that already works.
 
-Never let a Loadout failure break the agent. The fallback is always the same: the agent gets the full
-catalog, exactly as it would without Loadout.
+Never let a Skill Router failure break the agent. The fallback is always the same: the agent gets the full
+catalog, exactly as it would without Skill Router.
 
 If selected instructions cannot be read (`OSError`, including timeouts, or `UnicodeError`), the
 middleware warns and uses the ordinary full catalog for that model call. No partially loaded text is
@@ -100,7 +100,7 @@ boundary of a decision, and it must record what it caught.
 ## Logging
 
 One logger per module, `logging.getLogger(__name__)`, so an application configures the single name
-`langchain_loadout`. The library never adds handlers, sets levels or calls `basicConfig`, and never
+`langchain_skill_router`. The library never adds handlers, sets levels or calls `basicConfig`, and never
 accepts a logger argument.
 
 | level | content |
@@ -134,12 +134,12 @@ Test behaviour through public interfaces. The router is exercised through `decid
 middleware through an agent built with a fake model and a fake judge. Do not test private helpers
 directly and do not assert on call counts inside the router.
 
-`langchain_loadout.testing.ScriptedJudge` is the scripted judge, and it ships in the package because
-anyone testing an agent that uses Loadout needs one too. A test states the answers the judge gives and
+`langchain_skill_router.testing.ScriptedJudge` is the scripted judge, and it ships in the package because
+anyone testing an agent that uses Skill Router needs one too. A test states the answers the judge gives and
 asserts on the resulting `Decision`; that keeps tests independent of how many calls the router makes to
 get them.
 
-A new adapter is checked against the contract with `langchain_loadout.testing.check_judge`. It makes
+A new adapter is checked against the contract with `langchain_skill_router.testing.check_judge`. It makes
 one real call, so it belongs wherever the keys are — for us, in the testbed, not here.
 
 Cover the failure paths as deliberately as the success path: the judge raising, timing out, returning a

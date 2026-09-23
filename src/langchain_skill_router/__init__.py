@@ -5,26 +5,26 @@ Everything listed in `__all__` is the public API; anything else may change witho
 The root exports the core only, so importing the package pulls in no framework and no provider SDK.
 The parts that do are imported from their own modules:
 
-- `langchain_loadout.langchain.middleware` — `LoadoutSkillsMiddleware`, which replaces
+- `langchain_skill_router.langchain.middleware` — `SkillRouterMiddleware`, which replaces
   `SkillsMiddleware` in a deepagents agent;
-- `langchain_loadout.providers.jev` — `JevJudge`, the adapter for Jev (TypeSafe System One), which
+- `langchain_skill_router.providers.jev` — `JevJudge`, the adapter for Jev (TypeSafe System One), which
   needs the `jev` extra and `TYPESAFE_API_KEY`.
 
 Start from the README; the reasoning behind the design is in docs/design.md.
 """
 
-from langchain_loadout.core.judge import (
+from langchain_skill_router.core.judge import (
     Answer,
     Judge,
     JudgeMisconfigured,
     JudgeUnavailable,
     Limits,
-    LoadoutError,
     Pick,
+    SkillRouterError,
     YesNo,
 )
-from langchain_loadout.core.router import SkillRouter, decide_from_trace
-from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Trace, Turn
+from langchain_skill_router.core.router import SkillRouter, decide_from_trace
+from langchain_skill_router.core.types import DEFAULTS, Decision, Settings, Skill, Trace, Turn
 
 __all__ = [
     "DEFAULTS",
@@ -34,11 +34,11 @@ __all__ = [
     "JudgeMisconfigured",
     "JudgeUnavailable",
     "Limits",
-    "LoadoutError",
     "Pick",
     "Settings",
     "Skill",
     "SkillRouter",
+    "SkillRouterError",
     "Trace",
     "Turn",
     "YesNo",

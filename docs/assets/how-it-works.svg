@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="title desc">
-  <title id="title">How Loadout decides a turn</title>
+  <title id="title">How Skill Router decides a turn</title>
   <desc id="desc">A user turn goes through ranking with a need gate, then verification, then the skill is loaded, offered in a short list, or nothing is loaded. Every question is answered by a pluggable judge: Jev, a self-hosted model, or static rules. On failure the agent gets the full catalog.</desc>
   <defs>
     <linearGradient id="bg" x2="1" y2="1">
@@ -71,5 +71,5 @@
   </g>
 
   <text x="990" y="278" text-anchor="middle" class="mono" font-size="13" fill="#a3aecb">Timeout or outage:</text>
-  <text x="990" y="300" text-anchor="middle" class="mono" font-size="13" fill="#a3aecb">the full catalog, as without Loadout</text>
+  <text x="990" y="300" text-anchor="middle" class="mono" font-size="13" fill="#a3aecb">the full catalog, as without Skill Router</text>
 </svg>

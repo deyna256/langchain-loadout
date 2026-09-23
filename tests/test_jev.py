@@ -15,8 +15,8 @@ from typesafe_sdk import (
     TypeSafePermissionDeniedError,
 )
 
-from langchain_loadout import JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
-from langchain_loadout.providers.jev import JevJudge
+from langchain_skill_router import JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
+from langchain_skill_router.providers.jev import JevJudge
 
 
 def _choice(criteria: dict[str, str]) -> ChoiceAnswer:

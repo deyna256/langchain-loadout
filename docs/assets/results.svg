@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="292" viewBox="0 0 1200 292" role="img" aria-labelledby="title desc">
-  <title id="title">Loadout against the full catalog on 236 skills</title>
-  <desc id="desc">Input tokens per turn fall from 113.0k with the full catalog to 25.8k with Loadout, 4.4 times less. The right skill is in front of the model in 85% of turns against 55%. Correct answers are 90% against 88%: accuracy holds.</desc>
+  <title id="title">Skill Router against the full catalog on 236 skills</title>
+  <desc id="desc">Input tokens per turn fall from 113.0k with the full catalog to 25.8k with Skill Router, 4.4 times less. The right skill is in front of the model in 85% of turns against 55%. Correct answers are 90% against 88%: accuracy holds.</desc>
   <defs>
     <linearGradient id="bg" x2="1" y2="1">
       <stop stop-color="#0b1020"/>
@@ -28,7 +28,7 @@
   <text x="64" y="126" class="mono label">Full catalog</text>
   <rect x="64" y="134" width="272" height="20" rx="6" fill="#2b3557" stroke="#46577e"/>
   <text x="348" y="149" class="mono value">113.0k</text>
-  <text x="64" y="182" class="mono label">Loadout</text>
+  <text x="64" y="182" class="mono label">Skill Router</text>
   <rect x="64" y="190" width="62" height="20" rx="6" fill="#0e3b4d" stroke="#67e8f9"/>
   <text x="138" y="205" class="mono value" fill="#67e8f9">25.8k</text>
   <text x="64" y="248" class="note">4.4× less context</text>
@@ -38,7 +38,7 @@
   <text x="464" y="126" class="mono label">Full catalog</text>
   <rect x="464" y="134" width="150" height="20" rx="6" fill="#2b3557" stroke="#46577e"/>
   <text x="626" y="149" class="mono value">55%</text>
-  <text x="464" y="182" class="mono label">Loadout</text>
+  <text x="464" y="182" class="mono label">Skill Router</text>
   <rect x="464" y="190" width="231" height="20" rx="6" fill="#0e3b4d" stroke="#67e8f9"/>
   <text x="707" y="205" class="mono value" fill="#67e8f9">85%</text>
   <text x="464" y="248" class="note">Shorter list, better choice</text>
@@ -48,7 +48,7 @@
   <text x="864" y="126" class="mono label">Full catalog</text>
   <rect x="864" y="134" width="239" height="20" rx="6" fill="#2b3557" stroke="#46577e"/>
   <text x="1115" y="149" class="mono value">88%</text>
-  <text x="864" y="182" class="mono label">Loadout</text>
+  <text x="864" y="182" class="mono label">Skill Router</text>
   <rect x="864" y="190" width="245" height="20" rx="6" fill="#0e3b4d" stroke="#67e8f9"/>
   <text x="1121" y="205" class="mono value" fill="#67e8f9">90%</text>
   <text x="864" y="248" class="note">Accuracy holds</text>

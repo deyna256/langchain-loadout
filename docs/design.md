@@ -1,11 +1,11 @@
-# How Loadout works
+# How Skill Router works
 
 ## The problem
 
 An agent with tens or hundreds of skills keeps the name and description of every one of them in the
 system prompt, on every model call. The list grows with the catalog, takes up context and distracts the
 model: the more options there are, the worse it chooses — Anthropic reports a marked drop past 30–50
-tools, and on a catalog of 182 skills an agent loaded the wrong skill in 16.8% of requests. Loadout
+tools, and on a catalog of 182 skills an agent loaded the wrong skill in 16.8% of requests. Skill Router
 decides on each turn which skills are needed, and the model sees only those, so that it works on the
 user's request rather than on the catalog.
 
@@ -16,31 +16,31 @@ This section records the earlier measurements that informed the design. The late
 next version:
 
 - **Selection is no longer the weak point.** The loaded skill was the right one in 96% of loads, and the
-  right skill reached the model in 85% of turns against 55% with the full list. Loadout answered 90% of
+  right skill reached the model in 85% of turns against 55% with the full list. Skill Router answered 90% of
   turns correctly against 88% for the full list and 88% for perfect selection — the same answers from a
   quarter of the context.
-- **Skill quality is the ceiling.** An earlier run put Loadout five points below the full list. Six skills
+- **Skill quality is the ceiling.** An earlier run put Skill Router five points below the full list. Six skills
   in the testbed described a procedure that contradicted the rule the expected answer was computed from —
   one told the agent to look for an outgoing payment when the question was whether a counterparty had paid.
   Every variant that loads skills paid for it, perfect selection included; the full list, which rarely reads
   a skill, did not. With those six aligned, the gap reversed.
 - **A wrong skill is the costly error.** Turns worked from a wrong skill were answered correctly 72% of the
   time, against 92% with the right one, which is what the load threshold of 0.9 is there to buy.
-- **A rule inside a skill is what routing is for**: on the 21 turns whose answer depends on one, Loadout
+- **A rule inside a skill is what routing is for**: on the 21 turns whose answer depends on one, Skill Router
   scored 76%, the full list 67%, and an agent with no catalog at all 19%.
 
 ## Decisions
 
-1. **Loadout collects nothing and remembers nothing.** The catalog and the turn's context come from the
+1. **Skill Router collects nothing and remembers nothing.** The catalog and the turn's context come from the
    product or its framework, and each turn is decided on its own. Nothing is carried over from the turn
    before it, so the library needs no checkpointer and no store of its own.
 2. **The judge is a fast classifier that returns probabilities** (Jev today). The logic — which
-   questions to ask and how to read the answers — stays in Loadout; a provider is plugged in through
+   questions to ask and how to read the answers — stays in Skill Router; a provider is plugged in through
    the `Judge` port, which speaks in "pick one" and "yes or no".
-3. **A decision is a loadout for the turn:** load (the instruction text goes straight into the
+3. **A decision is the set of skills for the turn:** load (the instruction text goes straight into the
    request) and suggest (two or three candidates the model chooses from).
 4. **Every threshold is a product setting** (`Settings`), fitted on the product's own data.
-5. **A Loadout failure does not break the conversation:** the worst outcome is that the agent gets its
+5. **A Skill Router failure does not break the conversation:** the worst outcome is that the agent gets its
    skills the ordinary way.
 
 ## The turn
@@ -90,9 +90,9 @@ The core is imported from the package root, and the parts that carry a dependenc
 modules:
 
 ```python
-from langchain_loadout import Settings, SkillRouter, Turn  # core: no framework, no provider
-from langchain_loadout.langchain import LoadoutSkillsMiddleware  # pulls in langchain and deepagents
-from langchain_loadout.providers.jev import JevJudge  # pulls in typesafe-sdk
+from langchain_skill_router import Settings, SkillRouter, Turn  # core: no framework, no provider
+from langchain_skill_router.langchain import SkillRouterMiddleware  # pulls in langchain and deepagents
+from langchain_skill_router.providers.jev import JevJudge  # pulls in typesafe-sdk
 
 router = SkillRouter(catalog, judge, settings)
 decision = await router.decide(Turn(request, context))  # load / suggest + trace
@@ -137,7 +137,7 @@ router already answers that by splitting the catalog and asking again.
 None of this is left to be read carefully:
 
 ```python
-from langchain_loadout.testing import check_judge
+from langchain_skill_router.testing import check_judge
 
 
 async def test_my_adapter():
@@ -148,14 +148,14 @@ One real call checks the shape of the answers and that they are judgements rathe
 obvious yes has to outscore an obvious no, and the right option has to win the pick.
 
 **Provider limits.** An adapter declares `Limits` — for Jev, 32k tokens for the state plus the longest
-question, and 255 options. Loadout estimates the size of every call in advance, splits the catalog into
+question, and 255 options. Skill Router estimates the size of every call in advance, splits the catalog into
 parts that fit, truncates the request and the context, and rejects settings that cannot fit at all. If
 a part is refused anyway, it is asked again in halves.
 
 ## Inside the agent (deepagents)
 
-`LoadoutSkillsMiddleware` takes the place of `SkillsMiddleware`, under the same name. Skills are still
-discovered by the ordinary middleware through `state["skills_metadata"]`; on a new user message Loadout
+`SkillRouterMiddleware` takes the place of `SkillsMiddleware`, under the same name. Skills are still
+discovered by the ordinary middleware through `state["skills_metadata"]`; on a new user message Skill Router
 decides, and the model sees only the picked skills. The layout follows the provider's prompt cache, which
 serves a new request only as far as it repeats an earlier one: the system message gets a section that is
 the same on every call, and the turn's skills — the loaded one's instructions, the others by name and
@@ -185,7 +185,7 @@ is not in the list. The optimisation applies when the agent is run asynchronousl
 - **Thresholds have to be fitted per product**, and there is no procedure in the library for it yet.
   `apply_policy` is kept separate from the calls so traces can be refitted without paying the provider
   again, but the workflow around that is missing.
-- **Every turn pays for a full pass.** Loadout deliberately carries nothing between turns, so a
+- **Every turn pays for a full pass.** Skill Router deliberately carries nothing between turns, so a
   continuation of a topic costs the same as a new one: 3.1 s against the 1.6 s it cost while the
   library kept track of what was loaded. Removing that also cost about three points of skill-choice
   accuracy on continuations, measured by replaying the recorded answers.

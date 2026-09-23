@@ -1,5 +1,5 @@
 [project]
-name = "langchain-loadout"
+name = "langchain-skill-router"
 version = "0.2.2"
 description = "Per-turn skill routing for LangChain deepagents: a pluggable judge (Jev included, or your own) loads only the SKILL.md skills each turn needs, keeping a catalog of hundreds out of the prompt."
 keywords = [
@@ -31,10 +31,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/deyna256/langchain-loadout"
-Documentation = "https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md"
-Changelog = "https://github.com/deyna256/langchain-loadout/blob/main/CHANGELOG.md"
-Issues = "https://github.com/deyna256/langchain-loadout/issues"
+Homepage = "https://github.com/deyna256/langchain-skill-router"
+Documentation = "https://github.com/deyna256/langchain-skill-router/blob/main/docs/design.md"
+Changelog = "https://github.com/deyna256/langchain-skill-router/blob/main/CHANGELOG.md"
+Issues = "https://github.com/deyna256/langchain-skill-router/issues"
 
 [project.optional-dependencies]
 jev = ["typesafe-sdk>=0.7.0"]

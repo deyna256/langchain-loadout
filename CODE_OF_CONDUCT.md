@@ -11,7 +11,7 @@ private information without permission are not acceptable.
 
 ## Scope
 
-These rules apply in Loadout's issues, pull requests and other project spaces, and
+These rules apply in Skill Router's issues, pull requests and other project spaces, and
 when someone officially represents the project elsewhere.
 
 ## Reporting and response

@@ -11,6 +11,19 @@ Add the entry for a change in the same commit as the change itself.
 
 ### Changed
 
+- **Renamed from `langchain-loadout` to `langchain-skill-router`**, so the name says what the library does.
+  This breaks every import. To migrate:
+
+  | Before | After |
+  | --- | --- |
+  | `pip install langchain-loadout` | `pip install langchain-skill-router` |
+  | `import langchain_loadout` | `import langchain_skill_router` |
+  | `LoadoutSkillsMiddleware` | `SkillRouterMiddleware` |
+  | `LoadoutError` | `SkillRouterError` |
+  | `LoadoutState` | `SkillRouterState` |
+  | state keys `loadout_turn`, `loadout_failed` | `skill_router_turn`, `skill_router_failed` |
+  | `additional_kwargs["loadout"]` on skill messages | `additional_kwargs["skill_router"]` |
+
 - Package metadata: a description that names the pluggable judge, keywords, classifiers and project URLs,
   so the package is easier to find on PyPI.
 
@@ -114,9 +127,9 @@ The first release.
 - A public API: everything listed in `langchain_loadout.__all__`, importable from the package root and
   pulling in neither a framework nor a provider SDK.
 
-[Unreleased]: https://github.com/deyna256/langchain-loadout/compare/v0.2.2...HEAD
-[0.2.2]: https://github.com/deyna256/langchain-loadout/compare/v0.2.1...v0.2.2
-[0.2.1]: https://github.com/deyna256/langchain-loadout/compare/v0.2.0...v0.2.1
-[0.2.0]: https://github.com/deyna256/langchain-loadout/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/deyna256/langchain-loadout/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/deyna256/langchain-loadout/releases/tag/v0.1.0
+[Unreleased]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/deyna256/langchain-skill-router/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/deyna256/langchain-skill-router/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/deyna256/langchain-skill-router/releases/tag/v0.1.0

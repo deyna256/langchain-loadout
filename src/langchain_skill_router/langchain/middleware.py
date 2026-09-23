@@ -1,9 +1,9 @@
-"""Loadout for deepagents: a wrapper around the ordinary skills middleware (`SkillsMiddleware`).
+"""Skill Router for deepagents: a wrapper around the ordinary skills middleware (`SkillsMiddleware`).
 
 Skills are still discovered by the ordinary middleware, through `state["skills_metadata"]`. On each new
-user message Loadout decides which of them are needed, and the model sees only those. On any failure the
+user message Skill Router decides which of them are needed, and the model sees only those. On any failure the
 request passes to the ordinary middleware untouched, so the model sees the full list exactly as it would
-without Loadout.
+without Skill Router.
 
 What the model sees is laid out for the provider's prompt cache, which matches a request from its start:
 a new request is served from the cache only as far as it repeats an earlier one. The system message gets a
@@ -19,7 +19,7 @@ referred to: summarization may have replaced that turn in what the model sees wh
 Selection, instruction reads and `find_skill` use the current execution's catalog. No catalog or router
 is cached on the middleware instance, which may be shared by concurrent executions.
 
-Wiring: `create_deep_agent(..., skills=[...], middleware=[LoadoutSkillsMiddleware(...)])`. The wrapper
+Wiring: `create_deep_agent(..., skills=[...], middleware=[SkillRouterMiddleware(...)])`. The wrapper
 carries the built-in middleware's name and takes its place. The optimisation applies when the agent is
 run asynchronously (`ainvoke`, `astream`); a synchronous run takes the ordinary path.
 """
@@ -36,9 +36,9 @@ from langchain.tools import ToolRuntime
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage
 from langchain_core.tools import BaseTool, StructuredTool
 
-from langchain_loadout.core.judge import Judge
-from langchain_loadout.core.router import SkillRouter
-from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Turn
+from langchain_skill_router.core.judge import Judge
+from langchain_skill_router.core.router import SkillRouter
+from langchain_skill_router.core.types import DEFAULTS, Decision, Settings, Skill, Turn
 
 logger = logging.getLogger(__name__)
 
@@ -62,14 +62,14 @@ LISTED = """Other skills that may fit (read one's SKILL.md with `read_file`, `li
 {skills_list}"""
 
 
-class LoadoutState(SkillsState):
-    loadout_turn: NotRequired[Annotated[str, PrivateStateAttr]]  # id of the user message this decision was made for
-    loadout_failed: NotRequired[Annotated[bool, PrivateStateAttr]]  # a failure means the ordinary full list
+class SkillRouterState(SkillsState):
+    skill_router_turn: NotRequired[Annotated[str, PrivateStateAttr]]  # id of the user message this decision was made for
+    skill_router_failed: NotRequired[Annotated[bool, PrivateStateAttr]]  # a failure means the ordinary full list
 
 
 def is_skill_message(message: AnyMessage) -> bool:
-    """The message Loadout added after a request: not something the user said."""
-    return "loadout" in message.additional_kwargs
+    """The message Skill Router added after a request: not something the user said."""
+    return "skill_router" in message.additional_kwargs
 
 
 def recent_context(messages: Sequence[AnyMessage], limit: int = 6) -> str:
@@ -85,8 +85,8 @@ def recent_context(messages: Sequence[AnyMessage], limit: int = 6) -> str:
     return "\n".join(lines[-limit:])
 
 
-class LoadoutSkillsMiddleware(SkillsMiddleware):
-    state_schema = LoadoutState
+class SkillRouterMiddleware(SkillsMiddleware):
+    state_schema = SkillRouterState
 
     def __init__(
         self,
@@ -111,9 +111,9 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
     # --- the decision: once per new user message ----------------------------------------------------
 
     async def abefore_model(self, state: SkillsState, runtime: Any) -> dict[str, Any] | None:
-        # The base class fixes this parameter to SkillsState, while `state_schema = LoadoutState` is what
+        # The base class fixes this parameter to SkillsState, while `state_schema = SkillRouterState` is what
         # the graph actually builds, so the narrowing has to be stated here rather than in the signature.
-        ours = cast(LoadoutState, state)
+        ours = cast(SkillRouterState, state)
         messages = ours["messages"]
         last = next(
             (
@@ -126,7 +126,7 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         if last is None:
             return None
         turn_id = messages[last].id or str(last)
-        if ours.get("loadout_turn") == turn_id:
+        if ours.get("skill_router_turn") == turn_id:
             return None  # this turn already has a decision
         router = self._router_from(ours.get("skills_metadata", []))
         turn = Turn(request=str(messages[last].content), context=self.context(messages[:last]))
@@ -134,21 +134,21 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         if self.on_decision:
             self.on_decision(decision)
         if decision.trace.failure:
-            return {"loadout_turn": turn_id, "loadout_failed": True}
+            return {"skill_router_turn": turn_id, "skill_router_failed": True}
         by_name = {m["name"]: m for m in ours.get("skills_metadata", [])}
         loaded = [n for n in decision.load if n in by_name]
         try:
             texts = {n: await self._text(by_name[n]["path"]) for n in loaded}
         except (OSError, UnicodeError) as err:
             logger.warning("Skill instructions could not be read; using the full catalog (%s)", type(err).__name__)
-            return {"loadout_turn": turn_id, "loadout_failed": True}
+            return {"skill_router_turn": turn_id, "skill_router_failed": True}
         parts = [LOADED.format(name=n, text=t) for n, t in texts.items()]
         if listed := [by_name[n] for n in decision.suggest if n in by_name]:
             parts.append(LISTED.format(skills_list=self._format_skills_list(listed)))
-        update: dict[str, Any] = {"loadout_turn": turn_id, "loadout_failed": False}
+        update: dict[str, Any] = {"skill_router_turn": turn_id, "skill_router_failed": False}
         if parts:
             # Right after the request: the turn's later calls and the next turns all start with it.
-            update["messages"] = [HumanMessage("\n\n".join(parts), additional_kwargs={"loadout": loaded})]
+            update["messages"] = [HumanMessage("\n\n".join(parts), additional_kwargs={"skill_router": loaded})]
         return update
 
     # --- applying it: what the model sees -----------------------------------------------------------
@@ -157,7 +157,7 @@ class LoadoutSkillsMiddleware(SkillsMiddleware):
         self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]
     ) -> ModelResponse:
         state = request.state
-        if "loadout_turn" not in state or state.get("loadout_failed"):
+        if "skill_router_turn" not in state or state.get("skill_router_failed"):
             return await super().awrap_model_call(request, handler)  # the ordinary path: the full list
         # The turn's skills are already in the conversation, after the request.
         return await handler(request.override(system_message=append_to_system_message(request.system_message, PROMPT)))
