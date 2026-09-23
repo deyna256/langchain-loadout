@@ -331,3 +331,14 @@ async def test_both_questions_can_be_written_for_the_product_domain():
     assert need[1]["need"].instructions == "Does this need a bank skill?"
     assert ranking[1]["skill"].instructions == "Which bank skill fits best?"
     assert verify[1]["fits:visa-statement"].instructions.startswith("Does visa-statement do this? # visa-statement")
+
+async def test_context_chars_zero_sends_empty_context():
+    """context_chars=0 must omit context; `context[-0:]` would otherwise send all of it."""
+    judge = scripted({"visa-statement": 0.5}, need=0.1)
+
+    await SkillRouter(CATALOG, judge, Settings(context_chars=0)).decide(
+        Turn("hi", context="C" * 50_000)
+    )
+
+    assert all(state["context"] == "" for state, _ in judge.calls)
+

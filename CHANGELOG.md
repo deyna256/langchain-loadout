@@ -9,6 +9,10 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Fixed
+
+- `Settings.context_chars=0` now sends an empty context to the judge. Python's `s[-0:]` is `s`, so the previous slice sent the whole context and a long conversation could fail the turn.
+
 ### Changed
 
 - Package metadata: a description that names the pluggable judge, keywords, classifiers and project URLs,
