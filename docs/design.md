@@ -183,7 +183,7 @@ is not in the list. The optimisation applies when the agent is run asynchronousl
   seconds. The size estimate is part of the problem: 0.8 tokens per character is assumed against about
   0.68 measured, which causes unnecessary splitting.
 - **Thresholds have to be fitted per product**, and there is no procedure in the library for it yet.
-  `apply_policy` is kept separate from the calls so traces can be refitted without paying the provider
+  `decide_from_trace` is kept separate from the calls so traces can be refitted without paying the provider
   again, but the workflow around that is missing.
 - **Every turn pays for a full pass.** Skill Router deliberately carries nothing between turns, so a
   continuation of a topic costs the same as a new one: 3.1 s against the 1.6 s it cost while the
