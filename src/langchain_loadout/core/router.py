@@ -121,7 +121,9 @@ class SkillRouter:
 
     async def _decide(self, turn: Turn, started: float, ranked_so_far: list[str]) -> Decision:
         s = self.settings
-        base = {"request": turn.request[: s.request_chars], "context": turn.context[-s.context_chars :]}
+        # `s[-0:]` is `s` in Python, so context_chars=0 would send the whole context.
+        context = turn.context[-s.context_chars :] if s.context_chars else ""
+        base = {"request": turn.request[: s.request_chars], "context": context}
 
         def elapsed() -> float:
             return time.monotonic() - started
