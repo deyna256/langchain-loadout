@@ -98,6 +98,11 @@ decision before instructions are loaded; it does not report this later fallback.
 Catch narrowly and say what failed. A bare `except Exception` is acceptable only at the outermost
 boundary of a decision, and it must record what it caught.
 
+The `JevJudge.on_usage` callback is also isolated at its invocation boundary: an exception in user
+metrics code must not discard a successful provider answer. Log its exception type without the
+message or traceback, which may contain private data. Cancellation and other `BaseException`
+subclasses still propagate; provider calls and answer conversion stay outside this handler.
+
 ## Logging
 
 One logger per module, `logging.getLogger(__name__)`, so an application configures the single name
