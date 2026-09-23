@@ -15,7 +15,7 @@ answered <strong>90%</strong> of questions correctly against <strong>88%</strong
 the prompt. <a href="#results">See the benchmark&nbsp;&rarr;</a></p>
 
 [![CI](https://github.com/deyna256/langchain-skill-router/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-skill-router/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/langchain-skill-router)](https://pypi.org/project/langchain-skill-router/)
+[![PyPI](https://img.shields.io/pypi/v/langchain-skill-router?label=pypi)](https://pypi.org/project/langchain-skill-router/)
 [![Python](https://img.shields.io/pypi/pyversions/langchain-skill-router?label=python)](https://pypi.org/project/langchain-skill-router/)
 [![License: MIT](https://img.shields.io/github/license/deyna256/langchain-skill-router)](https://github.com/deyna256/langchain-skill-router/blob/main/LICENSE)
 [![Judge: pluggable](https://img.shields.io/badge/judge-pluggable-4b32c3)](#bring-your-own-judge)
