@@ -1,6 +1,6 @@
 [project]
 name = "langchain-skill-router"
-version = "0.2.2"
+version = "0.3.0"
 description = "Per-turn skill routing for LangChain deepagents: a pluggable judge (Jev included, or your own) loads only the SKILL.md skills each turn needs, keeping a catalog of hundreds out of the prompt."
 keywords = [
     "langchain", "langgraph", "deepagents", "agent-skills", "skill-md", "skill-routing", "skill-selection",

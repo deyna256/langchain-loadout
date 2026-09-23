@@ -9,6 +9,8 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-23
+
 ### Changed
 
 - **Renamed from `langchain-loadout` to `langchain-skill-router`**, so the name says what the library does.
@@ -127,7 +129,8 @@ The first release.
 - A public API: everything listed in `langchain_loadout.__all__`, importable from the package root and
   pulling in neither a framework nor a provider SDK.
 
-[Unreleased]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/deyna256/langchain-skill-router/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/deyna256/langchain-skill-router/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/deyna256/langchain-skill-router/compare/v0.1.1...v0.2.0
