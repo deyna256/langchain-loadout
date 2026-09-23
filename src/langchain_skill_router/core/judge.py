@@ -40,19 +40,19 @@ class Limits:
     tokens_per_char: float = 1.0  # upper estimate of tokens per character of text
 
 
-class LoadoutError(Exception):
+class SkillRouterError(Exception):
     """Base for every error this library raises."""
 
 
-class JudgeUnavailable(LoadoutError):
+class JudgeUnavailable(SkillRouterError):
     """The judge could not answer this time: a network problem, a timeout, a provider error.
 
     The router treats this as a failed turn and falls back: the agent gets the full catalog, exactly as
-    it would without Loadout.
+    it would without Skill Router.
     """
 
 
-class JudgeMisconfigured(LoadoutError):
+class JudgeMisconfigured(SkillRouterError):
     """The judge cannot work at all: missing or rejected credentials, or an adapter that does not meet
     the contract.
 

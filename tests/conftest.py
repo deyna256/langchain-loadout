@@ -1,6 +1,6 @@
 """Building blocks the tests share."""
 
-from langchain_loadout import Skill
+from langchain_skill_router import Skill
 
 
 def skill(name: str, *, group: str | None = None, text: str | None = None, description: str | None = None) -> Skill:

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/banner.svg" alt="Loadout: per-turn skill selection for LangChain deepagents, with a pluggable judge" width="100%">
+<img src="https://raw.githubusercontent.com/deyna256/langchain-skill-router/main/docs/assets/banner.svg" alt="Skill Router: per-turn skill selection for LangChain deepagents, with a pluggable judge" width="100%">
 
 <h3>Per-turn skill routing for LangChain deepagents</h3>
 
@@ -14,30 +14,32 @@ hosted model, a self-hosted one, or plain rules. An adapter for
 answered <strong>90%</strong> of questions correctly against <strong>88%</strong> with the whole catalog in
 the prompt. <a href="#results">See the benchmark&nbsp;&rarr;</a></p>
 
-[![CI](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
-[![Python](https://img.shields.io/pypi/pyversions/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
-[![License: MIT](https://img.shields.io/github/license/deyna256/langchain-loadout)](https://github.com/deyna256/langchain-loadout/blob/main/LICENSE)
+<p><sub>Formerly <code>langchain-loadout</code>.</sub></p>
+
+[![CI](https://github.com/deyna256/langchain-skill-router/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-skill-router/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/langchain-skill-router)](https://pypi.org/project/langchain-skill-router/)
+[![Python](https://img.shields.io/pypi/pyversions/langchain-skill-router)](https://pypi.org/project/langchain-skill-router/)
+[![License: MIT](https://img.shields.io/github/license/deyna256/langchain-skill-router)](https://github.com/deyna256/langchain-skill-router/blob/main/LICENSE)
 [![Judge: pluggable](https://img.shields.io/badge/judge-pluggable-4b32c3)](#bring-your-own-judge)
 <br>
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Your own judge](#bring-your-own-judge) · [Results](#results) · [FAQ](#faq) · [Docs](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Your own judge](#bring-your-own-judge) · [Results](#results) · [FAQ](#faq) · [Docs](https://github.com/deyna256/langchain-skill-router/blob/main/docs/design.md)
 
 </div>
 
 ---
 
-## Why Loadout
+## Why Skill Router
 
 [deepagents](https://github.com/langchain-ai/deepagents) lists every skill's name and description in
 the system prompt on every model call. With a handful of skills that is fine. With hundreds, the list
 takes tens of thousands of tokens per call, and the model has to pick the right procedure from a crowd
 of similar ones.
 
-Loadout replaces the built-in `SkillsMiddleware` with one that decides **per user turn**:
+Skill Router replaces the built-in `SkillsMiddleware` with one that decides **per user turn**:
 
 - **Only what the turn needs.** A confident pick is loaded with its instructions. When the pick is unsure,
   the model gets a short list of up to three candidates to choose from, and it can search the rest of the
@@ -50,15 +52,15 @@ Loadout replaces the built-in `SkillsMiddleware` with one that decides **per use
 - **Conversation-aware.** The judge also sees the recent conversation, so a follow-up like "and for
   April?" still routes to the skill the thread is about.
 - **Safe by default.** A timeout or an outage of the judge gives the agent the full catalog, exactly as it
-  would be without Loadout. Bad credentials raise instead of hiding a broken setup.
+  would be without Skill Router. Bad credentials raise instead of hiding a broken setup.
 - **Cache-friendly.** The system prompt is identical on every call, and the turn's skills are written after
   the user's message. The provider's prompt cache keeps working across turns.
 
 ## Quick start
 
 ```sh
-pip install "langchain-loadout[jev]"   # with the Jev adapter
-pip install langchain-loadout          # with your own judge
+pip install "langchain-skill-router[jev]"   # with the Jev adapter
+pip install langchain-skill-router          # with your own judge
 ```
 
 Put skills in `./skills/<name>/SKILL.md`, with `name` and `description` in YAML front matter (the Agent
@@ -70,17 +72,17 @@ your own.
 from deepagents import create_deep_agent
 from deepagents.backends import FilesystemBackend
 
-from langchain_loadout.langchain import LoadoutSkillsMiddleware
-from langchain_loadout.providers.jev import JevJudge
+from langchain_skill_router.langchain import SkillRouterMiddleware
+from langchain_skill_router.providers.jev import JevJudge
 
 backend = FilesystemBackend(root_dir=".", virtual_mode=True)
-loadout = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=JevJudge())
+skill_router = SkillRouterMiddleware(backend=backend, sources=["/skills/"], judge=JevJudge())
 
 agent = create_deep_agent(
     model="anthropic:claude-sonnet-5",
     backend=backend,
     skills=["/skills/"],
-    middleware=[loadout],  # takes the place of the built-in SkillsMiddleware
+    middleware=[skill_router],  # takes the place of the built-in SkillsMiddleware
 )
 await agent.ainvoke({"messages": [{"role": "user", "content": "I need a statement for the embassy"}]})
 ```
@@ -90,9 +92,9 @@ middleware. Requires Python 3.11+.
 
 ## How it works
 
-<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/how-it-works.svg" alt="A user turn is ranked with a need gate, then verified; the skill is loaded, offered in a short list, or nothing is loaded. A pluggable judge answers every question; on failure the agent gets the full catalog." width="100%">
+<img src="https://raw.githubusercontent.com/deyna256/langchain-skill-router/main/docs/assets/how-it-works.svg" alt="A user turn is ranked with a need gate, then verified; the skill is loaded, offered in a short list, or nothing is loaded. A pluggable judge answers every question; on failure the agent gets the full catalog." width="100%">
 
-On each new user message, Loadout makes one decision, and the rest of the turn's model calls reuse it:
+On each new user message, Skill Router makes one decision, and the rest of the turn's model calls reuse it:
 
 1. **Rank and gate, in parallel.** The judge ranks the catalog by description against the request and the
    recent conversation. In the same round it answers whether the request needs a skill at all. A catalog
@@ -113,7 +115,7 @@ A judge answers two kinds of question in one call: `Pick` (a probability for eve
 and optionally a per-call `timeout`:
 
 ```python
-from langchain_loadout import Answer, Limits, Pick, YesNo
+from langchain_skill_router import Answer, Limits, Pick, YesNo
 
 
 class MyJudge:
@@ -129,19 +131,19 @@ class MyJudge:
         }
 ```
 
-Pass it as `LoadoutSkillsMiddleware(..., judge=MyJudge())`. `langchain_loadout.testing.check_judge` checks
+Pass it as `SkillRouterMiddleware(..., judge=MyJudge())`. `langchain_skill_router.testing.check_judge` checks
 an adapter against the contract, and `ScriptedJudge` answers from a script in your tests. The probabilities
 are compared against thresholds, so the closer they are to calibrated, the better the defaults fit.
 
 ## Results
 
-Benchmark of **langchain-loadout 0.2.2** on a bank-statement assistant built with deepagents: 236 skills,
+Benchmark of **langchain-skill-router 0.2.2** on a bank-statement assistant built with deepagents: 236 skills,
 **55 conversations × 5 turns** per variant (275 turns each), Jev as the judge, one agent model for all
 variants. "Perfect selection" always loads the skill the question was written for: the ceiling for any router.
 
-<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/results.svg" alt="Input tokens per turn: 113.0k with the full catalog against 25.8k with Loadout, 4.4 times less. Right skill in front of the model: 55% against 85%. Correct answers: 88% against 90%." width="100%">
+<img src="https://raw.githubusercontent.com/deyna256/langchain-skill-router/main/docs/assets/results.svg" alt="Input tokens per turn: 113.0k with the full catalog against 25.8k with Skill Router, 4.4 times less. Right skill in front of the model: 55% against 85%. Correct answers: 88% against 90%." width="100%">
 
-| Metric | Loadout | Full catalog | Perfect selection |
+| Metric | Skill Router | Full catalog | Perfect selection |
 |---|---|---|---|
 | Input tokens per turn | **25.8k** | 113.0k | 26.8k |
 | Skills in the prompt, characters per call | **2.6k** | 89.2k | 2.7k |
@@ -162,17 +164,17 @@ variants. "Perfect selection" always loads the skill the question was written fo
 - **The cache holds across turns.** 77% of a new turn's first call came from the cache, against 41% before
   0.2.2, when the turn's skills were kept out of the conversation.
 
-An earlier run of the same benchmark put Loadout 5 points *below* the full catalog. The difference was six
+An earlier run of the same benchmark put Skill Router 5 points *below* the full catalog. The difference was six
 skills in the testbed catalog whose instructions contradicted the rule the expected answer was computed
 from; they dragged down every variant that loads skills, including perfect selection. Skill quality is the
 ceiling of any router.
 
 Generated data, one judge and one agent model. Fit the thresholds to your own data.
-[Methodology, earlier measurements and known limits →](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md)
+[Methodology, earlier measurements and known limits →](https://github.com/deyna256/langchain-skill-router/blob/main/docs/design.md)
 
 ## Configuration
 
-Everything is in `Settings`, passed as `LoadoutSkillsMiddleware(..., settings=Settings(...))`:
+Everything is in `Settings`, passed as `SkillRouterMiddleware(..., settings=Settings(...))`:
 
 | Knob | Default | What it does |
 |---|---|---|
@@ -188,17 +190,17 @@ decision's trace (probabilities, stage, timing) for logs and metrics.
 
 ## FAQ
 
-**Does Loadout work without deepagents?**
-Yes. `langchain_loadout` (the core) has no framework or provider dependency:
+**Does Skill Router work without deepagents?**
+Yes. `langchain_skill_router` (the core) has no framework or provider dependency:
 `SkillRouter(catalog, judge).decide(Turn(request, context))` returns what to load and what to suggest.
 
 **Do I need Jev?**
-No. Jev is the included adapter and what Loadout was measured with, but any `Judge` works: a self-hosted
+No. Jev is the included adapter and what Skill Router was measured with, but any `Judge` works: a self-hosted
 inference model behind your own adapter, deterministic rules, or another provider. See
 [Bring your own judge](#bring-your-own-judge).
 
 **What happens if the judge is slow or down?**
-The turn gets the full catalog, as if Loadout were not installed, and the trace records why.
+The turn gets the full catalog, as if Skill Router were not installed, and the trace records why.
 
 **What does the judge see?**
 The request and the recent conversation (the user's messages and the agent's replies, without tool
@@ -213,20 +215,20 @@ No. Every turn is decided from scratch. No checkpointer or extra storage is requ
 
 | Read | Covers |
 |---|---|
-| [How it works](https://github.com/deyna256/langchain-loadout/blob/main/docs/design.md) | Selection flow, judge interface, settings, measurements and known limits |
-| [Development guide](https://github.com/deyna256/langchain-loadout/blob/main/docs/development.md) | Architecture, conventions and testing |
-| [Contributing](https://github.com/deyna256/langchain-loadout/blob/main/CONTRIBUTING.md) | Local setup, checks, issues and pull requests |
-| [Changelog](https://github.com/deyna256/langchain-loadout/blob/main/CHANGELOG.md) | Release history |
+| [How it works](https://github.com/deyna256/langchain-skill-router/blob/main/docs/design.md) | Selection flow, judge interface, settings, measurements and known limits |
+| [Development guide](https://github.com/deyna256/langchain-skill-router/blob/main/docs/development.md) | Architecture, conventions and testing |
+| [Contributing](https://github.com/deyna256/langchain-skill-router/blob/main/CONTRIBUTING.md) | Local setup, checks, issues and pull requests |
+| [Changelog](https://github.com/deyna256/langchain-skill-router/blob/main/CHANGELOG.md) | Release history |
 
 The public API may change in minor releases while the version is `0.x`.
 
 ## Acknowledgements
 
-Loadout was inspired by [Jev](https://docs.typesafe.ai/introduction), TypeSafe AI's model for typed
+Skill Router was inspired by [Jev](https://docs.typesafe.ai/introduction), TypeSafe AI's model for typed
 decisions, and its first round follows TypeSafe's
-[skill suggestion cookbook](https://docs.typesafe.ai/cookbooks/skill_suggestion). Loadout is an independent
+[skill suggestion cookbook](https://docs.typesafe.ai/cookbooks/skill_suggestion). Skill Router is an independent
 open-source project, not affiliated with or endorsed by TypeSafe AI.
 
 ## License
 
-[MIT](https://github.com/deyna256/langchain-loadout/blob/main/LICENSE) © 2026 Ivan Deyna
+[MIT](https://github.com/deyna256/langchain-skill-router/blob/main/LICENSE) © 2026 Ivan Deyna

@@ -26,8 +26,8 @@ import time
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
-from langchain_loadout.core.judge import Answer, Judge, JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
-from langchain_loadout.core.types import DEFAULTS, Decision, Settings, Skill, Trace, Turn
+from langchain_skill_router.core.judge import Answer, Judge, JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
+from langchain_skill_router.core.types import DEFAULTS, Decision, Settings, Skill, Trace, Turn
 
 # Every question the judge is asked lives in `Settings`, so a product can write them for its own domain.
 # A candidate's text goes in its own question rather than in the shared state. That way its score does

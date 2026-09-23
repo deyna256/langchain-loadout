@@ -1,4 +1,4 @@
-"""The Loadout wrapper around the deepagents skills middleware: what the model sees, and what it sees on failure."""
+"""The Skill Router wrapper around the deepagents skills middleware: what the model sees, and what it sees on failure."""
 
 import asyncio
 from collections.abc import Mapping
@@ -14,9 +14,9 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
-from langchain_loadout import Answer, Limits, Pick, Settings, YesNo
-from langchain_loadout.langchain import LoadoutSkillsMiddleware, is_skill_message, recent_context
-from langchain_loadout.testing import ScriptedJudge, yes
+from langchain_skill_router import Answer, Limits, Pick, Settings, YesNo
+from langchain_skill_router.langchain import SkillRouterMiddleware, is_skill_message, recent_context
+from langchain_skill_router.testing import ScriptedJudge, yes
 
 SKILLS = {
     "visa-statement": "Statement for a visa: money movement, in English, stamped by the bank.",
@@ -69,7 +69,7 @@ def judge_choosing(name: str | None) -> ScriptedJudge:
 async def run(backend: FilesystemBackend, judge: ScriptedJudge, replies: list[AIMessage]) -> RecordingModel:
     model = RecordingModel(messages=iter(replies))
     model.seen = []
-    middleware = LoadoutSkillsMiddleware(
+    middleware = SkillRouterMiddleware(
         backend=backend, sources=["/skills/"], judge=judge, catalog_hint="Statements, spending, card limits."
     )
     agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
@@ -114,7 +114,7 @@ async def test_next_turn_starts_with_everything_the_previous_turn_sent(backend):
     # repeats an earlier one, so the next turn must begin with everything the previous one sent.
     model = RecordingModel(messages=iter([AIMessage("done"), AIMessage("done again")]))
     judge = judge_choosing("visa-statement")
-    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge)
+    middleware = SkillRouterMiddleware(backend=backend, sources=["/skills/"], judge=judge)
     agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware], checkpointer=InMemorySaver())
     thread = {"configurable": {"thread_id": "t"}}
 
@@ -182,7 +182,7 @@ async def test_instruction_read_failure_restores_full_catalog(backend, monkeypat
             ]
         )
     )
-    middleware = LoadoutSkillsMiddleware(
+    middleware = SkillRouterMiddleware(
         backend=backend,
         sources=["/skills/"],
         judge=judge,
@@ -208,7 +208,7 @@ async def test_instruction_read_does_not_hide_backend_bugs(backend, monkeypatch)
     async def download(paths):
         raise TypeError("backend bug")
 
-    middleware = LoadoutSkillsMiddleware(
+    middleware = SkillRouterMiddleware(
         backend=backend,
         sources=["/skills/"],
         judge=judge_choosing("visa-statement"),
@@ -228,7 +228,7 @@ async def test_cancellation_during_instruction_read_stops_the_agent(backend, mon
         reading.set()
         await asyncio.Future()
 
-    middleware = LoadoutSkillsMiddleware(
+    middleware = SkillRouterMiddleware(
         backend=backend,
         sources=["/skills/"],
         judge=judge_choosing("visa-statement"),
@@ -254,7 +254,7 @@ async def test_model_io_error_is_not_retried_as_a_skill_fallback(backend):
             raise OSError("model unavailable")
 
     model = FailingModel(messages=iter([]))
-    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"))
+    middleware = SkillRouterMiddleware(backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"))
     agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
     with pytest.raises(OSError, match="model unavailable"):
         await agent.ainvoke({"messages": [HumanMessage("I need a statement")]})
@@ -276,7 +276,7 @@ async def test_decision_is_made_once_per_turn(backend):
 async def test_every_decision_is_reported_for_observability(backend):
     seen = []
     model = RecordingModel(messages=iter([AIMessage("done")]))
-    middleware = LoadoutSkillsMiddleware(
+    middleware = SkillRouterMiddleware(
         backend=backend, sources=["/skills/"], judge=judge_choosing("visa-statement"), on_decision=seen.append
     )
     agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
@@ -316,7 +316,7 @@ def catalog_agent(backend, middleware, tmp_path, label, name):
 
 async def test_catalog_updates_with_unchanged_skill_names(backend, tmp_path):
     judge = judge_choosing("statement")
-    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=judge)
+    middleware = SkillRouterMiddleware(backend=backend, sources=["/skills/"], judge=judge)
     for label in ("old", "new"):
         agent, model = catalog_agent(backend, middleware, tmp_path, label, "statement")
         result = await agent.ainvoke({"messages": [HumanMessage(label)]})
@@ -344,7 +344,7 @@ async def test_overlapping_runs_keep_their_own_catalog(backend, tmp_path, same_n
         async def ask(self, state, questions):
             return await answer(state, questions)
 
-    middleware = LoadoutSkillsMiddleware(backend=backend, sources=["/skills/"], judge=OverlappingJudge())
+    middleware = SkillRouterMiddleware(backend=backend, sources=["/skills/"], judge=OverlappingJudge())
     agents = {label: catalog_agent(backend, middleware, tmp_path, label, "statement" if same_name else label) for label in ("A", "B")}
 
     async def invoke(label):

@@ -6,8 +6,19 @@ from dataclasses import replace
 import pytest
 from conftest import skill
 
-from langchain_loadout import Answer, JudgeMisconfigured, Pick, Settings, Skill, SkillRouter, Trace, Turn, YesNo, decide_from_trace
-from langchain_loadout.testing import ScriptedJudge, yes
+from langchain_skill_router import (
+    Answer,
+    JudgeMisconfigured,
+    Pick,
+    Settings,
+    Skill,
+    SkillRouter,
+    Trace,
+    Turn,
+    YesNo,
+    decide_from_trace,
+)
+from langchain_skill_router.testing import ScriptedJudge, yes
 
 CATALOG = [skill(n) for n in ("visa-statement", "spending-by-category", "subscriptions", "card-limits", "dispute")]
 

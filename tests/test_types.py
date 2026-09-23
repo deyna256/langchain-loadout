@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from langchain_loadout import Settings, Turn
+from langchain_skill_router import Settings, Turn
 
 
 def test_settings_are_tuned_per_product_without_touching_defaults():

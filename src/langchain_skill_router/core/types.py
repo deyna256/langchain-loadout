@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Skill:
-    """A skill from the product's catalog. Loadout does not discover skills; it is handed them."""
+    """A skill from the product's catalog. Skill Router does not discover skills; it is handed them."""
 
     name: str
     description: str

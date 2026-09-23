@@ -2,7 +2,7 @@
 
 <!-- What happens today, and what is missing or wrong?
      For a bug: reproduction steps, expected and actual behaviour, and the versions of Python,
-     langchain-loadout and the judge adapter in use. -->
+     langchain-skill-router and the judge adapter in use. -->
 
 ## Why it matters
 

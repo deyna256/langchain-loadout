@@ -15,7 +15,7 @@ from typesafe_sdk import (
     TypeSafePermissionDeniedError,
 )
 
-from langchain_loadout.core.judge import Answer, JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
+from langchain_skill_router.core.judge import Answer, JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
 
 # Credentials that the provider rejects: retrying cannot help, so these surface instead of falling back.
 # A bad request, including one that is too large, is deliberately not here: the router answers that by

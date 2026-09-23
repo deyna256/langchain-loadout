@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Mapping
 
-from langchain_loadout.core.judge import Answer, Limits, Pick, YesNo
+from langchain_skill_router.core.judge import Answer, Limits, Pick, YesNo
 
 Questions = Mapping[str, Pick | YesNo]
 Script = Callable[[Mapping[str, object], Questions], Mapping[str, Answer]]

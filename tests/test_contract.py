@@ -5,9 +5,9 @@ from collections.abc import Mapping
 import pytest
 from conftest import skill
 
-from langchain_loadout import Answer, JudgeMisconfigured, JudgeUnavailable, Pick, SkillRouter, Turn, YesNo
-from langchain_loadout.testing import ScriptedJudge, check_judge
-from langchain_loadout.testing.conformance import SKILLS
+from langchain_skill_router import Answer, JudgeMisconfigured, JudgeUnavailable, Pick, SkillRouter, Turn, YesNo
+from langchain_skill_router.testing import ScriptedJudge, check_judge
+from langchain_skill_router.testing.conformance import SKILLS
 
 CATALOG = [skill(n) for n in ("visa-statement", "spending-by-category")]
 
