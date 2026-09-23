@@ -9,7 +9,7 @@ product behaves, and the [Code of Conduct](CODE_OF_CONDUCT.md) when working with
 Check for an existing issue before opening one. Give each issue one clear outcome and a short title
 that describes the problem or intended change.
 
-Use the [issue template](.github/ISSUE_TEMPLATE.md), which has these sections:
+Use the [issue template](.github/ISSUE_TEMPLATE/issue.md), which has these sections:
 
 - **Problem:** explain what happens today and what is missing or wrong. For a bug, include reproduction
   steps, expected and actual behaviour, and the versions of Python, `langchain-skill-router` and the judge
