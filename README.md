@@ -4,9 +4,15 @@
 
 <h3>Per-turn skill routing for LangChain deepagents</h3>
 
-<p>Keep hundreds of <code>SKILL.md</code> skills out of the prompt. For each user turn, a fast judge decides
-which skills it needs, and only those are loaded. Bring any judge: a hosted model, a self-hosted one, or
-plain rules. An adapter for <a href="https://docs.typesafe.ai/introduction">Jev</a> is included.</p>
+<p>A drop-in replacement for the <a href="https://github.com/langchain-ai/deepagents">deepagents</a>
+<code>SkillsMiddleware</code>: on each user turn a fast judge decides which <code>SKILL.md</code> skills are
+needed, and only those are loaded, so a catalog of hundreds stays out of the prompt. Bring any judge: a
+hosted model, a self-hosted one, or plain rules. An adapter for
+<a href="https://docs.typesafe.ai/introduction">Jev</a> is included.</p>
+
+<p><strong>113.0k&nbsp;&rarr;&nbsp;25.8k input tokens per turn</strong> on a 236-skill catalog, and the agent
+answered <strong>90%</strong> of questions correctly against <strong>88%</strong> with the whole catalog in
+the prompt. <a href="#results">See the benchmark&nbsp;&rarr;</a></p>
 
 [![CI](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-loadout/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/langchain-loadout)](https://pypi.org/project/langchain-loadout/)
@@ -132,6 +138,8 @@ are compared against thresholds, so the closer they are to calibrated, the bette
 Benchmark of **langchain-loadout 0.2.2** on a bank-statement assistant built with deepagents: 236 skills,
 **55 conversations × 5 turns** per variant (275 turns each), Jev as the judge, one agent model for all
 variants. "Perfect selection" always loads the skill the question was written for: the ceiling for any router.
+
+<img src="https://raw.githubusercontent.com/deyna256/langchain-loadout/main/docs/assets/results.svg" alt="Input tokens per turn: 113.0k with the full catalog against 25.8k with Loadout, 4.4 times less. Right skill in front of the model: 55% against 85%. Correct answers: 88% against 90%." width="100%">
 
 | Metric | Loadout | Full catalog | Perfect selection |
 |---|---|---|---|

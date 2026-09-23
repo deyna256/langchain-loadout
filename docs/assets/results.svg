@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="292" viewBox="0 0 1200 292" role="img" aria-labelledby="title desc">
+  <title id="title">Loadout against the full catalog on 236 skills</title>
+  <desc id="desc">Input tokens per turn fall from 113.0k with the full catalog to 25.8k with Loadout, 4.4 times less. The right skill is in front of the model in 85% of turns against 55%. Correct answers are 90% against 88%: accuracy holds.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1">
+      <stop stop-color="#0b1020"/>
+      <stop offset="1" stop-color="#131b3a"/>
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#ffffff" opacity="0.07"/>
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .caption { font-size: 13px; letter-spacing: 2px; fill: #a3aecb; }
+    .head { font-size: 16px; font-weight: 700; fill: #ffffff; }
+    .label { font-size: 12px; fill: #8e9abb; }
+    .value { font-size: 15px; font-weight: 700; fill: #e6edf3; }
+    .note { font-size: 13px; fill: #a3aecb; }
+  </style>
+  <rect width="1200" height="292" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="292" rx="24" fill="url(#dots)"/>
+  <text x="64" y="52" class="mono caption">236 SKILLS · 275 TURNS PER VARIANT · v0.2.2</text>
+
+  <!-- input tokens per turn -->
+  <text x="64" y="98" class="head">Input tokens per turn</text>
+  <text x="64" y="126" class="mono label">Full catalog</text>
+  <rect x="64" y="134" width="272" height="20" rx="6" fill="#2b3557" stroke="#46577e"/>
+  <text x="348" y="149" class="mono value">113.0k</text>
+  <text x="64" y="182" class="mono label">Loadout</text>
+  <rect x="64" y="190" width="62" height="20" rx="6" fill="#0e3b4d" stroke="#67e8f9"/>
+  <text x="138" y="205" class="mono value" fill="#67e8f9">25.8k</text>
+  <text x="64" y="248" class="note">4.4× less context</text>
+
+  <!-- right skill in front of the model -->
+  <text x="464" y="98" class="head">Right skill in front of the model</text>
+  <text x="464" y="126" class="mono label">Full catalog</text>
+  <rect x="464" y="134" width="150" height="20" rx="6" fill="#2b3557" stroke="#46577e"/>
+  <text x="626" y="149" class="mono value">55%</text>
+  <text x="464" y="182" class="mono label">Loadout</text>
+  <rect x="464" y="190" width="231" height="20" rx="6" fill="#0e3b4d" stroke="#67e8f9"/>
+  <text x="707" y="205" class="mono value" fill="#67e8f9">85%</text>
+  <text x="464" y="248" class="note">Shorter list, better choice</text>
+
+  <!-- correct answers -->
+  <text x="864" y="98" class="head">Correct answers</text>
+  <text x="864" y="126" class="mono label">Full catalog</text>
+  <rect x="864" y="134" width="239" height="20" rx="6" fill="#2b3557" stroke="#46577e"/>
+  <text x="1115" y="149" class="mono value">88%</text>
+  <text x="864" y="182" class="mono label">Loadout</text>
+  <rect x="864" y="190" width="245" height="20" rx="6" fill="#0e3b4d" stroke="#67e8f9"/>
+  <text x="1121" y="205" class="mono value" fill="#67e8f9">90%</text>
+  <text x="864" y="248" class="note">Accuracy holds</text>
+</svg>
