@@ -1,3 +1,8 @@
+---
+name: Issue
+about: A bug, a feature, maintenance, documentation or a question
+---
+
 ## Problem
 
 <!-- What happens today, and what is missing or wrong?

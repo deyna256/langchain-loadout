@@ -14,11 +14,9 @@ hosted model, a self-hosted one, or plain rules. An adapter for
 answered <strong>90%</strong> of questions correctly against <strong>88%</strong> with the whole catalog in
 the prompt. <a href="#results">See the benchmark&nbsp;&rarr;</a></p>
 
-<p><sub>Formerly <code>langchain-loadout</code>.</sub></p>
-
 [![CI](https://github.com/deyna256/langchain-skill-router/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deyna256/langchain-skill-router/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/langchain-skill-router)](https://pypi.org/project/langchain-skill-router/)
-[![Python](https://img.shields.io/pypi/pyversions/langchain-skill-router)](https://pypi.org/project/langchain-skill-router/)
+[![Python](https://img.shields.io/pypi/pyversions/langchain-skill-router?label=python)](https://pypi.org/project/langchain-skill-router/)
 [![License: MIT](https://img.shields.io/github/license/deyna256/langchain-skill-router)](https://github.com/deyna256/langchain-skill-router/blob/main/LICENSE)
 [![Judge: pluggable](https://img.shields.io/badge/judge-pluggable-4b32c3)](#bring-your-own-judge)
 <br>
@@ -137,7 +135,7 @@ are compared against thresholds, so the closer they are to calibrated, the bette
 
 ## Results
 
-Benchmark of **langchain-skill-router 0.2.2** on a bank-statement assistant built with deepagents: 236 skills,
+Benchmark of **version 0.2.2** on a bank-statement assistant built with deepagents: 236 skills,
 **55 conversations × 5 turns** per variant (275 turns each), Jev as the judge, one agent model for all
 variants. "Perfect selection" always loads the skill the question was written for: the ceiling for any router.
 
@@ -183,7 +181,7 @@ Everything is in `Settings`, passed as `SkillRouterMiddleware(..., settings=Sett
 | `need_at` | 0.3 | Below this "is a skill needed" probability, nothing is loaded |
 | `skip_verify_at` | 0.9 | Ranking this sure skips verification (`None` turns it off) |
 | `timeout` | 2.0 | Seconds for the whole decision, after which the full catalog is used |
-| `need_question`, `rank_question`, … | general wording | The questions Jev is asked. Naming your domain separates better |
+| `need_question`, `rank_question`, … | general wording | The questions the judge is asked. Naming your domain separates better |
 
 `JevJudge(timeout=...)` limits each call to Jev. `on_decision=` on the middleware receives every
 decision's trace (probabilities, stage, timing) for logs and metrics.

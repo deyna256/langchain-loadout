@@ -56,14 +56,14 @@ Every number a product might want to change lives in `Settings`, with a comment 
 Do not hardcode a threshold in the router. Thresholds are compared against calibrated probabilities, so
 a judge that cannot produce them cannot be used.
 
-Keep policy separate from calls: `apply_policy` turns a `Trace` into a `Decision` without touching the
+Keep policy separate from calls: `decide_from_trace` turns a `Trace` into a `Decision` without touching the
 judge, so thresholds can be refitted on recorded traces without spending money.
 
 ## Asynchronous code
 
-The decision path is asynchronous end to end. Use `asyncio.timeout` for the whole decision rather than
-per-call timeouts, and `asyncio.gather` for work that is genuinely independent — catalog parts, skill
-reads, candidate checks.
+The decision path is asynchronous end to end. Use `asyncio.timeout` for the whole decision, with the
+judge's own `timeout` enforced on each call inside it, and `asyncio.gather` for work that is genuinely
+independent — catalog parts, skill reads, candidate checks.
 
 Never block the event loop: no synchronous HTTP, no file reads outside the backend, no `time.sleep`.
 Measure elapsed time with `time.monotonic`.
@@ -78,7 +78,8 @@ Two judge failures, with different handling:
 - `JudgeUnavailable` — network, timeout, provider error. Fall back silently to the full catalog and
   record the reason in `Trace.failure`.
 - `JudgeMisconfigured` — missing or rejected credentials, an adapter that breaks the contract. Never
-  swallowed: it surfaces from `SkillRouter`, and from the middleware while it is being built.
+  swallowed: it surfaces from `SkillRouter`, and through the middleware on the first turn, where the
+  router is built from the turn's catalog.
 
 An adapter decides which is which, and the rule is whether a retry could help. Credentials the provider
 rejects are misconfiguration. A rejected request, including one that is too large, is not: the router
