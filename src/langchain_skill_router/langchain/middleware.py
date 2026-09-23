@@ -129,7 +129,7 @@ class SkillRouterMiddleware(SkillsMiddleware):
         if ours.get("skill_router_turn") == turn_id:
             return None  # this turn already has a decision
         router = self._router_from(ours.get("skills_metadata", []))
-        turn = Turn(request=str(messages[last].content), context=self.context(messages[:last]))
+        turn = Turn(request=messages[last].text, context=self.context(messages[:last]))
         decision = await router.decide(turn)
         if self.on_decision:
             self.on_decision(decision)
