@@ -39,11 +39,12 @@ class JevJudge:
     ) -> None:
         """`timeout` is the limit on each call, in seconds (see `Judge`): it goes into every request, over the
         client's own setting. Left out, a call keeps the client's timeout, 10 s by default in the SDK.
-        Exceptions from `on_usage` are logged without discarding the answer; cancellation propagates."""
+        Exceptions from `on_usage` are logged once per judge without discarding the answer; cancellation propagates."""
         self.timeout = timeout
         # No retries: a decision has two seconds, and a late answer is useless because the fallback has run.
         self.client = client or AsyncTypeSafeClient(retry=RetryPolicy(max_retries=0), timeout=timeout)
         self.on_usage = on_usage  # tokens per call, so cost can be attributed to decisions under concurrency
+        self._usage_warning_logged = False
 
     async def ask(self, state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> Mapping[str, Answer]:
         asked = {key: _to_jev(q) for key, q in questions.items()}
@@ -60,7 +61,10 @@ class JevJudge:
                 self.on_usage(tokens)
             except Exception as err:
                 # User metrics must not discard an answer. Their error text may contain private data.
-                logger.warning("Jev on_usage callback failed (%s); keeping the answer", type(err).__name__)
+                # One decision can call the judge repeatedly; a broken callback must not flood the log.
+                if not self._usage_warning_logged:
+                    self._usage_warning_logged = True
+                    logger.warning("Jev on_usage callback failed (%s); keeping the answer", type(err).__name__)
         return {key: _from_jev(answer) for key, answer in response.answers.items()}
 
 

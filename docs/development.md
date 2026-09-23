@@ -98,10 +98,9 @@ decision before instructions are loaded; it does not report this later fallback.
 Catch narrowly and say what failed. A bare `except Exception` is acceptable only at the outermost
 boundary of a decision, and it must record what it caught.
 
-The `JevJudge.on_usage` callback is also isolated at its invocation boundary: an exception in user
-metrics code must not discard a successful provider answer. Log its exception type without the
-message or traceback, which may contain private data. Cancellation and other `BaseException`
-subclasses still propagate; provider calls and answer conversion stay outside this handler.
+An exception from a user callback, such as `on_usage`, must not discard a successful answer. Log
+the exception type only, not its message or traceback, which may contain private data.
+Cancellation still propagates.
 
 ## Logging
 
@@ -112,12 +111,13 @@ accepts a logger argument.
 | level | content |
 |---|---|
 | `DEBUG` | the decision trace: candidates with probabilities, stage, timings, catalog parts |
-| `WARNING` | judge unavailable, fell back to the full catalog; timeout |
+| `WARNING` | judge unavailable, fell back to the full catalog; timeout; a user callback such as `on_usage` raised |
 | `ERROR` | misconfiguration, once per process |
 | `INFO` | nothing |
 
 The request and the context are the end user's own text and may contain personal data. They never
-appear above `DEBUG`. Warnings and errors carry skill names, probabilities and timings only.
+appear above `DEBUG`. Warnings and errors carry skill names, probabilities, timings and exception
+type names only.
 
 `on_decision` is the programmatic hook for metrics and benchmarks. Logging is for people; do not use
 one in place of the other.

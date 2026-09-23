@@ -100,6 +100,25 @@ async def test_usage_callback_cancellation_propagates():
         await JevJudge(Client(), on_usage=on_usage).ask({}, {"need": YesNo("Is a skill needed?")})
 
 
+async def test_usage_callback_warns_once_per_judge_but_keeps_reporting_usage(caplog):
+    spent = []
+
+    def on_usage(tokens):
+        spent.append(tokens)
+        raise RuntimeError("private metrics label")
+
+    judge = JevJudge(Client(), on_usage=on_usage)
+    questions = {"need": YesNo("Is a skill needed?")}
+    answers = await asyncio.gather(*(judge.ask({}, questions) for _ in range(3)))
+
+    assert all(answer["need"].yes == 0.75 for answer in answers)
+    assert spent == [42, 42, 42]
+    assert len(caplog.records) == 1
+
+    await JevJudge(Client(), on_usage=on_usage).ask({}, questions)
+    assert len(caplog.records) == 2
+
+
 @pytest.mark.parametrize("kind", [TypeSafeAuthenticationError, TypeSafePermissionDeniedError])
 async def test_rejected_credentials_are_misconfiguration(kind):
     judge = JevJudge(Client(raises=api_error(kind)))
