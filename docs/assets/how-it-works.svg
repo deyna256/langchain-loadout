@@ -19,6 +19,9 @@
     .caption { font-size: 13px; letter-spacing: 2px; fill: #a3aecb; }
     .head { font-size: 18px; font-weight: 700; fill: #ffffff; }
     .body { font-size: 13px; fill: #bac4e1; }
+    .flow { stroke-dasharray: 6 8; animation: flow 1.6s linear infinite; }
+    @keyframes flow { to { stroke-dashoffset: -28; } }
+    @media (prefers-reduced-motion: reduce) { .flow { animation: none; } }
   </style>
   <rect width="1200" height="380" rx="24" fill="url(#bg)"/>
   <rect width="1200" height="380" rx="24" fill="url(#dots)"/>
@@ -53,7 +56,7 @@
   <circle cx="864" cy="208" r="4" fill="#637393"/>
   <text x="880" y="213" font-size="15" fill="#e6edf3">Load nothing</text>
 
-  <g fill="none" stroke="#637393" stroke-width="2" marker-end="url(#arrow)">
+  <g class="flow" fill="none" stroke="#637393" stroke-width="2" marker-end="url(#arrow)">
     <path d="M234 156H278"/>
     <path d="M514 156H558"/>
     <path d="M794 156C818 156 818 112 838 112"/>

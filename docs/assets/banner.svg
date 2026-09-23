@@ -18,6 +18,13 @@
     text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     .caption { font-size: 13px; letter-spacing: 2px; fill: #a3aecb; }
+    .flow { stroke-dasharray: 6 8; animation: flow 1.6s linear infinite; }
+    .load { stroke-dasharray: 12 6; animation: load 1.2s linear infinite; }
+    .offer { stroke-dasharray: 4 5; animation: offer 1.8s linear infinite; }
+    @keyframes flow { to { stroke-dashoffset: -28; } }
+    @keyframes load { to { stroke-dashoffset: -36; } }
+    @keyframes offer { to { stroke-dashoffset: -18; } }
+    @media (prefers-reduced-motion: reduce) { .flow, .load, .offer { animation: none; } }
   </style>
   <rect width="1200" height="360" rx="24" fill="url(#bg)"/>
   <rect width="1200" height="360" rx="24" fill="url(#dots)"/>
@@ -37,15 +44,15 @@
   <g stroke="#637393" stroke-width="3" stroke-linecap="round">
     <path d="M609 122h55 M609 164h72 M609 206h42 M609 248h62"/>
   </g>
-  <g fill="none" stroke="#46577e" stroke-width="1.5">
-    <path d="M712 122C750 122 747 178 788 178 M712 164C750 164 747 178 788 178"/>
-    <path d="M712 206C750 206 747 194 788 194 M712 248C750 248 747 194 788 194"/>
+  <g fill="none" stroke="#637393" stroke-width="1.5">
+    <path class="flow" d="M712 122C750 122 747 178 788 178 M712 164C750 164 747 178 788 178"/>
+    <path class="flow" d="M712 206C750 206 747 194 788 194 M712 248C750 248 747 194 788 194"/>
   </g>
   <rect x="788" y="140" width="116" height="92" rx="16" fill="#1a2350" stroke="#a5b4fc" stroke-width="1.5"/>
   <text x="846" y="179" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Skill Router</text>
   <text x="846" y="205" text-anchor="middle" class="mono" font-size="12" fill="#bac4e1">rank + verify</text>
-  <path d="M904 175C929 175 926 151 950 151" fill="none" stroke="#67e8f9" stroke-width="2"/>
-  <path d="M904 197C929 197 926 223 950 223" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-dasharray="4 5"/>
+  <path class="load" d="M904 175C929 175 926 151 950 151" fill="none" stroke="#67e8f9" stroke-width="2"/>
+  <path class="offer" d="M904 197C929 197 926 223 950 223" fill="none" stroke="#a5b4fc" stroke-width="2"/>
   <rect x="950" y="127" width="186" height="48" rx="10" fill="#142f41" stroke="#67e8f9"/>
   <circle cx="969" cy="151" r="4" fill="#67e8f9"/>
   <text x="987" y="157" font-size="17" fill="#e6edf3">Instructions</text>
