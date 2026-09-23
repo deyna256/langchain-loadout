@@ -95,6 +95,33 @@ async def test_confident_choice_shows_only_that_skill_and_its_text(backend):
     assert "card-limits" not in prompt and "spending-by-category" not in prompt
 
 
+@pytest.mark.parametrize(
+    "attachment",
+    [
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64," + "A" * 5000}},
+        {"type": "file", "file": {"filename": "statement.pdf", "file_data": "data:application/pdf;base64," + "B" * 5000}},
+    ],
+)
+async def test_multimodal_request_sends_only_text_to_judge(backend, attachment):
+    request = "I need a statement for the embassy"
+    message = HumanMessage(content=[attachment, {"type": "text", "text": request}])
+    judge = judge_choosing("visa-statement")
+    model = RecordingModel(messages=iter([AIMessage("done")]))
+    middleware = SkillRouterMiddleware(backend=backend, sources=["/skills/"], judge=judge)
+    agent = create_deep_agent(model=model, backend=backend, skills=["/skills/"], middleware=[middleware])
+
+    await agent.ainvoke({"messages": [message]})
+
+    assert judge.calls
+    assert all(state["request"] == request for state, _ in judge.calls)
+    original = next(m for m in model.seen[0] if isinstance(m, HumanMessage) and not is_skill_message(m))
+    assert original.text == request
+    # LangChain normalizes file blocks before the model sees them.
+    payload = "A" * 5000 if attachment["type"] == "image_url" else "B" * 5000
+    assert payload in str(original.content)
+    assert "Instruction text for visa-statement" in prompt_text(model.seen[0])
+
+
 async def test_the_skill_follows_the_request_and_the_system_message_stays_the_same(backend):
     # The provider's cache matches a request from its start: whatever the turn picks must come after the
     # conversation so far, and the system message must not depend on the pick.

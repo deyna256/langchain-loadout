@@ -166,6 +166,9 @@ call of a turn got the conversation from the cache in 16–24% of turns, against
 message is marked (`is_skill_message`), is never taken for the user's request and stays out of the judge's
 context. On failure the request goes to the ordinary middleware with the full list.
 
+The middleware uses the user message's text for the judge's request. Image and file attachments stay
+in the agent's conversation but are not included in the routing request.
+
 The judge sees the turn's context as the product assembles it; the default, `recent_context`, is the
 last few things the user asked and the agent answered, without tool calls and their results, which would
 otherwise crowd the previous request out of the window. `find_skill(query)` covers the case where the model needs a skill that
