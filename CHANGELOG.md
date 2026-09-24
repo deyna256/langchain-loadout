@@ -9,6 +9,11 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Changed
+
+- The README reports the prompt cache as input tokens per turn not served from it, the same for Skill Router
+  and the full catalog, instead of the share served, which was lower only because the prompt is smaller.
+
 ### Fixed
 
 - Route messages with image or file attachments using their text, so attachment data does not crowd
