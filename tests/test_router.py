@@ -297,6 +297,20 @@ async def test_ranking_probabilities_are_in_the_trace():
     assert d.trace.stage == "verify"
 
 
+@pytest.mark.parametrize("skip_verify_at", [0.8, None])
+@pytest.mark.parametrize("max_suggest", [0, 1, 3])
+async def test_zero_max_load_only_suggests_with_or_without_verification(skip_verify_at, max_suggest):
+    judge = scripted({"visa-statement": 0.95}, fits={"visa-statement": 0.95})
+    settings = Settings(max_load=0, max_suggest=max_suggest, skip_verify_at=skip_verify_at)
+
+    decision = await SkillRouter([CATALOG[0]], judge, settings).decide(Turn("visa statement"))
+
+    assert decision.load == ()
+    assert decision.suggest == (("visa-statement",) if max_suggest else ())
+    assert decision.trace.failure is None
+    assert decide_from_trace(settings, decision.trace) == decision
+
+
 async def test_a_confident_ranking_skips_verification_when_the_product_allows_it():
     judge = scripted({"visa-statement": 0.9, "dispute": 0.05})
 

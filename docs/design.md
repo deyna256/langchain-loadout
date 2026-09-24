@@ -62,6 +62,9 @@ user message
           admitted candidates are offered; none admitted → nothing
 ```
 
+Setting `max_load=0` disables loading, including when confident ranking skips verification.
+The selected candidate is offered instead, subject to `max_suggest`.
+
 **Why it is shaped this way**, from the testbed measurements:
 
 - Verification asks two different things. Ordered by their independent yes/no answers alone, lookalikes
