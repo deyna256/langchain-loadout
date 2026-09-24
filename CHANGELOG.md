@@ -15,6 +15,8 @@ Add the entry for a change in the same commit as the change itself.
   changes their internals does not break it. Its state now follows what the installed deepagents accepts
   in `skills_metadata`. Suggested skills and `find_skill` results also show a skill's allowed tools, as
   the full list does.
+- The README reports the prompt cache as input tokens per turn not served from it, the same for Skill Router
+  and the full catalog, instead of the share served, which was lower only because the prompt is smaller.
 
 ### Fixed
 
