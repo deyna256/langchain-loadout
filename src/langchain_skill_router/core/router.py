@@ -22,12 +22,15 @@ the one question that depends on its domain through `Settings.need_question`.
 
 import asyncio
 import json
+import logging
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
 from langchain_skill_router.core.judge import Answer, Judge, JudgeMisconfigured, JudgeUnavailable, Limits, Pick, YesNo
 from langchain_skill_router.core.types import DEFAULTS, Decision, Settings, Skill, Trace, Turn
+
+logger = logging.getLogger(__name__)
 
 # Every question the judge is asked lives in `Settings`, so a product can write them for its own domain.
 # A candidate's text goes in its own question rather than in the shared state. That way its score does
@@ -117,6 +120,7 @@ class SkillRouter:
         except Exception as err:
             failure = "timeout" if isinstance(err, TimeoutError) else f"{type(err).__name__}: {err}"
             trace = Trace(failure=failure, seconds=time.monotonic() - started)
+            logger.warning("Skill Router decision failed: %s", failure)
             return Decision(suggest=tuple(ranked_so_far[: self.settings.max_suggest]), trace=trace)
 
     async def _decide(self, turn: Turn, started: float, ranked_so_far: list[str]) -> Decision:
