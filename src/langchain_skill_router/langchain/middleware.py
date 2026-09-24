@@ -151,14 +151,14 @@ class SkillRouterMiddleware(SkillsMiddleware):
         turn_id = messages[last].id or str(last)
         if ours.get("skill_router_turn") == turn_id:
             return None  # this turn already has a decision
-        router = self._router_from(ours.get("skills_metadata", []))
+        router = self._router_from(ours.get("skills_metadata") or [])
         turn = Turn(request=messages[last].text, context=self.context(messages[:last]))
         decision = await router.decide(turn)
         if self.on_decision:
             self.on_decision(decision)
         if decision.trace.failure:
             return {"skill_router_turn": turn_id, "skill_router_failed": True}
-        by_name = {m["name"]: m for m in ours.get("skills_metadata", [])}
+        by_name = {m["name"]: m for m in (ours.get("skills_metadata") or [])}
         loaded = [n for n in decision.load if n in by_name]
         try:
             texts = {n: await self._text(by_name[n]["path"]) for n in loaded}

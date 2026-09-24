@@ -168,7 +168,8 @@ context. On failure the request goes to the ordinary middleware with the full li
 
 The middleware relies only on public names of deepagents and langchain. Its state extends the one
 `SkillsMiddleware.state_schema` declares, so it follows whatever the installed deepagents accepts in
-`skills_metadata`; the helpers it used to borrow — adding to the system message, listing skills — are its own.
+`skills_metadata`, including `None` for a catalog that is not loaded yet. It adds to the system message and
+lists skills with helpers of its own.
 
 The middleware uses the user message's text for the judge's request. Image and file attachments stay
 in the agent's conversation but are not included in the routing request.
