@@ -1,5 +1,6 @@
 """What the router decides on a turn, given the answers the judge is scripted to give."""
 
+import logging
 from collections.abc import Mapping
 from dataclasses import replace
 
@@ -209,6 +210,23 @@ async def test_ranking_failure_changes_nothing():
     assert "provider unavailable" in d.trace.failure
 
 
+async def test_failed_decision_logs_warning_with_failure(caplog):
+    judge = Boom(fail_on=1, pick={})
+    user_request = "sensitive user inquiry"
+
+    with caplog.at_level(logging.WARNING):
+        d = await SkillRouter(CATALOG, judge).decide(Turn(user_request))
+
+    assert (d.load, d.suggest) == ((), ())
+    assert d.trace.failure is not None
+    assert "provider unavailable" in d.trace.failure
+    assert d.trace.failure in caplog.text
+    assert "Skill Router decision failed" in caplog.text
+    assert user_request not in caplog.text
+    for s in CATALOG:
+        assert s.description not in caplog.text
+
+
 async def test_slow_judge_is_cut_by_timeout_and_changes_nothing():
     judge = Boom(fail_on=1, pick={}, slow=5)
 
@@ -216,6 +234,16 @@ async def test_slow_judge_is_cut_by_timeout_and_changes_nothing():
 
     assert (d.load, d.suggest) == ((), ())
     assert d.trace.failure == "timeout"
+
+
+async def test_decision_timeout_logs_warning(caplog):
+    judge = Boom(fail_on=1, pick={}, slow=5)
+
+    with caplog.at_level(logging.WARNING):
+        d = await SkillRouter(CATALOG, judge, Settings(timeout=0.05)).decide(Turn("something"))
+
+    assert d.trace.failure == "timeout"
+    assert "Skill Router decision failed: timeout" in caplog.text
 
 
 async def test_the_judges_own_timeout_cuts_each_call_within_a_generous_decision_timeout():

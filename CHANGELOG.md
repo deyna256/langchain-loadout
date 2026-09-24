@@ -9,6 +9,10 @@ Add the entry for a change in the same commit as the change itself.
 
 ## [Unreleased]
 
+### Added
+
+- Log a warning with the failure when a decision fails, so timeouts and judge errors do not fall back silently.
+
 ### Fixed
 
 - Route messages with image or file attachments using their text, so attachment data does not crowd
