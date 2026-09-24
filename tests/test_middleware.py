@@ -95,6 +95,23 @@ async def test_confident_choice_shows_only_that_skill_and_its_text(backend):
     assert "card-limits" not in prompt and "spending-by-category" not in prompt
 
 
+async def test_unsure_choice_lists_candidates_with_paths_to_read(backend):
+    def answer(state: Mapping[str, object], questions: Mapping[str, Pick | YesNo]) -> Mapping[str, Answer]:
+        spread = {"visa-statement": 0.6, "spending-by-category": 0.3, "card-limits": 0.1}
+        admitted = ("need", "fits:visa-statement", "fits:spending-by-category")
+        return {
+            key: Answer({o: spread[o] for o in q.options}) if isinstance(q, Pick) else yes(0.95 if key in admitted else 0.05)
+            for key, q in questions.items()
+        }
+
+    model = await run(backend, ScriptedJudge(answer), [AIMessage("done")])
+    prompt = prompt_text(model.seen[0])
+
+    assert "Instruction text for" not in prompt
+    assert f"- **visa-statement**: {SKILLS['visa-statement']}\n  -> Read `/skills/visa-statement/SKILL.md`" in prompt
+    assert "- **spending-by-category**" in prompt and "card-limits" not in prompt
+
+
 @pytest.mark.parametrize(
     "attachment",
     [
