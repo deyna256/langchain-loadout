@@ -46,6 +46,8 @@ def decide_from_trace(s: Settings, trace: Trace) -> Decision:
         return Decision(trace=trace)
     top = next(iter(trace.candidates), None)
     if s.skip_verify_at is not None and top and top[1] >= s.skip_verify_at:
+        if s.max_load == 0:
+            return Decision(suggest=(top[0],)[: s.max_suggest], trace=trace)
         return Decision(load=(top[0],), trace=trace)  # ranking is sure; skip verification
     # Verification's pick orders the candidates; a trace recorded without one falls back to the ranking.
     # `fits` does not order them: independent yes/no answers tie on lookalikes.

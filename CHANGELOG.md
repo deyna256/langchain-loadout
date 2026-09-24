@@ -11,6 +11,7 @@ Add the entry for a change in the same commit as the change itself.
 
 ### Fixed
 
+- Respect `max_load=0` when confident ranking skips verification: offer the candidate instead (#12).
 - Route messages with image or file attachments using their text, so attachment data does not crowd
   the user's request out of the judge's input.
 
