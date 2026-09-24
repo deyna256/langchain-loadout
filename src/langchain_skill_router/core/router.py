@@ -105,6 +105,8 @@ class SkillRouter:
     async def decide(self, turn: Turn) -> Decision:
         """Decide one turn. Any failure means changing nothing, or suggesting the ranked candidates if it was
         verification that failed."""
+        if not self.skills:
+            return Decision()
         started = time.monotonic()
         # `_decide` appends to this as soon as ranking finishes. The timeout below fires outside `_decide`,
         # so this is how the handler learns what had already been ranked when the clock ran out.

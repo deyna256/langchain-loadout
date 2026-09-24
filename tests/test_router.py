@@ -23,6 +23,18 @@ from langchain_skill_router.testing import ScriptedJudge, yes
 CATALOG = [skill(n) for n in ("visa-statement", "spending-by-category", "subscriptions", "card-limits", "dispute")]
 
 
+async def test_empty_catalog_returns_empty_decisions_without_asking_the_judge():
+    judge = ScriptedJudge(lambda state, questions: {})
+    router = SkillRouter([], judge)
+
+    for turn in (Turn("hello"), Turn("and now?", context="previous conversation")):
+        decision = await router.decide(turn)
+        assert (decision.load, decision.suggest) == ((), ())
+        assert decision.trace.failure is None
+        assert decision.trace.candidates == ()
+    assert judge.calls == []
+
+
 def scripted(
     pick: Mapping[str, float],
     need: float = 0.9,

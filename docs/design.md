@@ -1,5 +1,7 @@
 # How Skill Router works
 
+When the catalog is empty, routing returns an empty decision without calling the judge.
+
 ## The problem
 
 An agent with tens or hundreds of skills keeps the name and description of every one of them in the
