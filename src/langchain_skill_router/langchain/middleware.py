@@ -125,6 +125,7 @@ class SkillRouterMiddleware(SkillsMiddleware):
         self.backend = backend  # skill texts are read through it
         self.judge, self.settings, self.context = judge, settings, context
         self.on_decision = on_decision  # every decision's trace, for logs, metrics and measurement
+        self._decision_warning_logged = False
         self.tools: list[BaseTool] = [self._find_skill_tool(catalog_hint)]
 
     @property
@@ -155,7 +156,14 @@ class SkillRouterMiddleware(SkillsMiddleware):
         turn = Turn(request=messages[last].text, context=self.context(messages[:last]))
         decision = await router.decide(turn)
         if self.on_decision:
-            self.on_decision(decision)
+            try:
+                self.on_decision(decision)
+            except Exception as err:
+                # User metrics must not discard a decision. Their error text may contain private data.
+                # One middleware can serve many turns; a broken callback must not flood the log.
+                if not self._decision_warning_logged:
+                    self._decision_warning_logged = True
+                    logger.warning("Skill Router on_decision callback failed (%s); keeping the decision", type(err).__name__)
         if decision.trace.failure:
             return {"skill_router_turn": turn_id, "skill_router_failed": True}
         by_name = {m["name"]: m for m in (ours.get("skills_metadata") or [])}
