@@ -126,6 +126,10 @@ Keep each section short and avoid repeating the issue or listing every changed f
 when needed, such as migration steps or breaking changes. Link the issue; use `Closes #<number>` when
 the PR completes it. Update the description and affected documentation when the code changes.
 
+Open the pull request as a draft while the work is in progress. When it is ready, mark it ready for review
+and request a review from [@deyna256](https://github.com/deyna256) or another maintainer. Do this again after you address
+the review's findings, so the reviewer knows the pull request is ready for another look.
+
 ## Reviews
 
 Review the change as submitted, against the issue and the
