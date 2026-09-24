@@ -45,6 +45,10 @@ next version:
 
 ## The turn
 
+When the catalog is empty, `decide()` returns an empty decision with `trace.stage == "empty"`,
+and `search()` returns an empty list. Neither calls the judge. The `empty` stage distinguishes a
+successful empty-catalog decision from a failure, whose stage is blank and whose `failure` records the reason.
+
 ```
 user message
   │
